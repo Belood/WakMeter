@@ -154,3 +154,4 @@ Breakdown->>UI: onClose()
 UI->>Breakdown: destroy() / hide()
 UI->>UI: displayPlayerStats(players, totalDamage)
 UI-->>User: retourne à la vue principale
+```
