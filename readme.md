@@ -10,47 +10,42 @@ The app parses a combat log file, calculates per-player and per-ability damage, 
 ```mermaid
 classDiagram
 %% ===============================
-%% COUCHE PRINCIPALE
-%% ===============================
-
-class DamageMeterApp {
-    - LogParser parser
-    - DamageCalculator calculator
-    - UIManager uiManager
-    + run(logFilePath: String): void
-}
-
-%% ===============================
-%% COUCHE PARSING
-%% ===============================
-
-class LogParser {
-    + parseLog(filePath: String): List<CombatEvent>
-}
-
-class CombatEvent {
-    + timestamp: Date
-    + playerName: String
-    + abilityName: String
-    + damageAmount: int
-}
-
-%% ===============================
 %% COUCHE METIER / MODELE
 %% ===============================
 
-class DamageCalculator {
-    + calculatePlayerStats(events: List<CombatEvent>): List<Player>
-    + calculateTotalDamage(players: List<Player>): int
+class Fighter {
+    <<abstract>>
+    - name: String
+    - id: long
+    - isControlledByAI: boolean
+    + getName(): String
+    + getId(): long
+    + isControlledByAI(): boolean
+    + getType(): FighterType
+}
+
+class FighterType {
+    <<enumeration>>
+    PLAYER
+    ENEMY
 }
 
 class Player {
-    + name: String
     + playerClass: PlayerClass
     + spells: List<SpellDamage>
-    + getTotalDamage(): int
-    + getDamagePercentage(totalDamage: int): float
+    + addSpellDamage(spell: SpellDamage): void
+    + getPlayerClass(): PlayerClass
+    + getType(): FighterType
 }
+
+class Enemy {
+    + breed: String
+    + getBreed(): String
+    + getType(): FighterType
+}
+
+Fighter <|-- Player
+Fighter <|-- Enemy
 
 class PlayerClass {
     + name: String
@@ -59,6 +54,7 @@ class PlayerClass {
 
 class Ability {
     + name: String
+    + element: String
     + baseDamage: int
 }
 
@@ -67,91 +63,63 @@ class SpellDamage {
     + damageDealt: int
 }
 
-%% ===============================
-%% COUCHE PRESENTATION
-%% ===============================
-
-class UIManager {
-    + displayPlayerStats(players: List<Player>, totalDamage: int): void
-    + showSpellBreakdown(player: Player): void
-}
-
-class PlayerUI {
-    + playerName: String
-    + damageBarWidth: float
-    + totalDamage: int
-    + percentage: float
-    + onShowBreakdownClicked(): void
-}
-
-class SpellBreakdownUI {
-    + playerName: String
-    + spells: List<SpellDamage>
-    + displayBreakdown(): void
-}
-
-%% ===============================
-%% RELATIONS ENTRE CLASSES
-%% ===============================
-
-DamageMeterApp --> LogParser
-DamageMeterApp --> DamageCalculator
-DamageMeterApp --> UIManager
-
-LogParser --> CombatEvent
-DamageCalculator --> Player
-DamageCalculator --> CombatEvent
-Player --> PlayerClass
-Player --> SpellDamage
 PlayerClass --> Ability
+Player --> SpellDamage
 SpellDamage --> Ability
-UIManager --> PlayerUI
-UIManager --> SpellBreakdownUI
-UIManager --> Player
-PlayerUI --> SpellBreakdownUI : "ouvre"
+
+%% ===============================
+%% EVENEMENTS DE COMBAT
+%% ===============================
+
+class CombatEvent {
+    + timestamp: LocalDateTime
+    + caster: Fighter
+    + target: Fighter
+    + ability: Ability
+    + type: EventType
+    + value: int
+}
+
+class EventType {
+    <<enumeration>>
+    DAMAGE
+    HEAL
+    BUFF
+    KO
+    INSTANT_KO
+}
+
+CombatEvent --> Fighter : caster
+CombatEvent --> Fighter : target
+CombatEvent --> Ability
+
+%% ===============================
+%% COUCHE PARSING
+%% ===============================
+
+class WakfuLogParserV3 {
+    - fighters: Map<String, Fighter>
+    - lastAbilityByCaster: Map<String, Ability>
+    - lastCastTime: Map<String, Long>
+    + startRealtimeParsing(path: Path, onEvent: Consumer<CombatEvent>): void
+    + stop(): void
+}
+
+class LogPatterns {
+    <<static>>
+    + START_COMBAT: Pattern
+    + END_COMBAT: Pattern
+    + PLAYER_JOIN: Pattern
+    + CAST_SPELL: Pattern
+    + DAMAGE: Pattern
+    + KO: Pattern
+    + INSTANT_KO: Pattern
+    + ELEMENT_REGEX: String
+}
+
+WakfuLogParserV3 --> LogPatterns
+WakfuLogParserV3 --> CombatEvent
+WakfuLogParserV3 --> Fighter
 
 
-```
-
-```merdaid
-sequenceDiagram
-participant User as Utilisateur
-participant App as DamageMeterApp
-participant Parser as LogParser
-participant Calc as DamageCalculator
-participant UI as UIManager
-participant PlayerUI as PlayerUI
-participant Breakdown as SpellBreakdownUI
-
-%% === Phase 1 : Lancement du programme ===
-User->>App: run("combat.log")
-App->>Parser: parseLog("combat.log")
-Parser-->>App: List<CombatEvent>
-
-%% === Phase 2 : Calcul des statistiques ===
-App->>Calc: calculatePlayerStats(events)
-Calc-->>App: List<Player>
-App->>Calc: calculateTotalDamage(players)
-Calc-->>App: totalDamage
-
-%% === Phase 3 : Affichage principal ===
-App->>UI: displayPlayerStats(players, totalDamage)
-UI->>PlayerUI: créer une ligne par joueur
-PlayerUI-->>UI: lignes prêtes avec bouton "Breakdown"
-UI-->>User: affiche la liste principale des joueurs
-
-%% === Phase 4 : Interaction Breakdown ===
-User->>PlayerUI: clic sur "Breakdown"
-PlayerUI->>UI: onShowBreakdownClicked()
-UI->>UI: showSpellBreakdown(player)
-UI->>Breakdown: créer SpellBreakdownUI(player)
-Breakdown->>Breakdown: displayBreakdown()
-Breakdown-->>User: affiche la répartition des dégâts par sort
-
-%% === Phase 5 : Fermeture Breakdown ===
-User->>Breakdown: clic sur "Fermer"
-Breakdown->>UI: onClose()
-UI->>Breakdown: destroy() / hide()
-UI->>UI: displayPlayerStats(players, totalDamage)
-UI-->>User: retourne à la vue principale
 ```

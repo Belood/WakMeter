@@ -1,4 +1,4 @@
-package com.wakfu.model;
+package com.wakfu.domain.abilities;
 
 public class Ability {
     private String name;

@@ -22,6 +22,12 @@ public final class LogPatterns {
             Pattern.compile("\\[Information \\(combat\\)\\]\\s*(.+?) lance le sort ([^\\(]+)");
     public static final Pattern DAMAGE =
             Pattern.compile("\\[Information \\(combat\\)\\]\\s*(.+?): -([\\d\\s]+) PV\\s*\\(([^\\)]+)\\)?");
+    public static final Pattern HEAL =
+            Pattern.compile("\\[Information \\(combat\\)\\]\\s*(.+?): \\+([\\d\\s]+) PV\\s*\\(([^\\)]+)\\)?");
+    public static final Pattern SHIELD =
+            Pattern.compile("\\[Information \\(combat\\)\\]\\s*(.+?): ([\\d\\s]+) Armure \\(([^\\)]+)\\)");
+
+    // --- KO / Buffs ---
     public static final Pattern KO =
             Pattern.compile("\\[Information \\(combat\\)\\]\\s*(.+?) est KO");
     public static final Pattern INSTANT_KO =

@@ -6,6 +6,7 @@ package com.wakfu;
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 
 
+import com.wakfu.domain.event.CombatEvent;
 import com.wakfu.parser.LogParser;
 import javafx.application.Application;
 import javafx.stage.Stage;
