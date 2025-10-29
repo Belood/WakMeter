@@ -1,5 +1,7 @@
 package com.wakfu.domain.event;
 
+import java.time.LocalDateTime;
+
 /**
  * Représente le début ou la fin d’un combat.
  */

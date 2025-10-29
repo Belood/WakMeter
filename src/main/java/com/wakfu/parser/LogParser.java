@@ -4,6 +4,7 @@ import com.wakfu.domain.abilities.Ability;
 import com.wakfu.domain.actors.Enemy;
 import com.wakfu.domain.actors.Fighter;
 import com.wakfu.domain.actors.Player;
+import com.wakfu.domain.event.BattleEvent;
 import com.wakfu.domain.event.CombatEvent;
 import com.wakfu.domain.event.EventType;
 import com.wakfu.domain.event.LogEvent;

@@ -5,7 +5,7 @@ import com.wakfu.domain.actors.Fighter;
 
 import java.time.LocalDateTime;
 
-public class CombatEvent {
+public class CombatEvent extends LogEvent{
 
     private Fighter caster;
     private Fighter target;

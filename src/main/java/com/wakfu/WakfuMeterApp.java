@@ -1,19 +1,24 @@
 package com.wakfu;
 
-
-
-//TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
-// click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
-
-
-import com.wakfu.domain.event.CombatEvent;
+import com.wakfu.domain.actors.Player;
+import com.wakfu.domain.event.*;
 import com.wakfu.parser.LogParser;
+import com.wakfu.service.DamageCalculator;
+import com.wakfu.ui.UIManager;
 import javafx.application.Application;
 import javafx.stage.Stage;
 
+import java.io.IOException;
+import java.nio.file.*;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Optional;
+
 /**
- * Point d'entrée principal de l'application Damage Meter.
- * Gère la séquence complète : parsing -> calcul -> affichage (JavaFX UI).
+ * Application principale WakfuMeter :
+ * - Détecte automatiquement le dernier fichier de log Wakfu
+ * - Parse les événements en temps réel
+ * - Met à jour l'UI avec les dégâts des joueurs
  */
 public class WakfuMeterApp extends Application {
 
@@ -21,48 +26,85 @@ public class WakfuMeterApp extends Application {
     private DamageCalculator calculator;
     private UIManager uiManager;
 
-    /**
-     * Méthode principale standard pour lancer l'application JavaFX.
-     */
-    public static void main(String[] args) {
-        launch(args);
-    }
+    // Répertoire des logs Wakfu
+    private static final Path LOG_DIR = Paths.get("C:\\Users\\alex_\\AppData\\Roaming\\zaap\\gamesLogs\\wakfu\\logs");
 
     @Override
     public void start(Stage primaryStage) {
-        // Initialisation des composants
-        parser = new LogParser();
-        calculator = new DamageCalculator();
         uiManager = new UIManager(primaryStage);
-
-        // Exemple de fichier log (tu pourras le passer en argument plus tard)
-        String logFilePath = "combat.log";
+        calculator = new DamageCalculator();
+        parser = new LogParser();
 
         try {
-            run(logFilePath);
-        } catch (Exception e) {
-            e.printStackTrace();
-            uiManager.showError("Erreur", "Impossible de charger le fichier de log : " + e.getMessage());
+            Path logFile = findLatestLogFile(LOG_DIR);
+            if (logFile == null) {
+                uiManager.showError("Erreur", "Aucun fichier de log trouvé dans : " + LOG_DIR);
+                return;
+            }
+
+            uiManager.showMessage("Wakfu Meter", "Lecture en temps réel : " + logFile.getFileName());
+            parser.startRealtimeParsing(logFile, this::handleLogEvent);
+
+        } catch (IOException e) {
+            uiManager.showError("Erreur", "Impossible d'accéder au dossier de logs : " + e.getMessage());
         }
     }
 
     /**
-     * Exécute le flux principal de traitement :
-     * - Lecture du fichier de log
-     * - Calcul des statistiques
-     * - Affichage du résultat dans l'interface
-     *
-     * @param logFilePath chemin du fichier de log
+     * Trouve le fichier de log le plus récemment modifié dans le dossier donné.
      */
-    public void run(String logFilePath) {
-        // 1. Parse du log
-        List<CombatEvent> events = parser.parseLog(logFilePath);
+    private Path findLatestLogFile(Path directory) throws IOException {
+        if (!Files.exists(directory)) return null;
 
-        // 2. Calcul des dégâts par joueur
-        List<Player> players = calculator.calculatePlayerStats(events);
+        try (var files = Files.list(directory)) {
+            Optional<Path> latest = files
+                    .filter(f -> f.getFileName().toString().toLowerCase().contains("log"))
+                    .filter(Files::isRegularFile)
+                    .max(Comparator.comparingLong(this::getLastModifiedTimeSafe));
+
+            return latest.orElse(null);
+        }
+    }
+
+    private long getLastModifiedTimeSafe(Path file) {
+        try {
+            return Files.getLastModifiedTime(file).toMillis();
+        } catch (IOException e) {
+            return 0L;
+        }
+    }
+
+    private void handleLogEvent(LogEvent event) {
+        if (event instanceof BattleEvent battle) {
+            handleBattleEvent(battle);
+        } else if (event instanceof CombatEvent combat) {
+            handleCombatEvent(combat);
+        }
+    }
+
+    private void handleBattleEvent(BattleEvent battleEvent) {
+        switch (battleEvent.getState()) {
+            case START -> uiManager.showMessage("Combat", "Début du combat détecté !");
+            case END -> uiManager.showMessage("Combat", "Fin du combat détectée !");
+        }
+    }
+
+    private void handleCombatEvent(CombatEvent event) {
+        calculator.updateWithEvent(event);
+
+        List<Player> players = calculator.getPlayers();
         int totalDamage = calculator.calculateTotalDamage(players);
 
-        // 3. Affichage dans l'UI principale
         uiManager.displayPlayerStats(players, totalDamage);
+    }
+
+    @Override
+    public void stop() throws Exception {
+        if (parser != null) parser.stop();
+        super.stop();
+    }
+
+    public static void main(String[] args) {
+        launch(args);
     }
 }
