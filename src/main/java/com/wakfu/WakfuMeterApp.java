@@ -9,6 +9,8 @@ import javafx.application.Application;
 import javafx.stage.Stage;
 
 import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.Comparator;
 import java.util.List;
@@ -31,7 +33,7 @@ public class WakfuMeterApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        uiManager = new UIManager(primaryStage);
+        uiManager = new UIManager(primaryStage, calculator); // ✅ nouveau constructeur
         calculator = new DamageCalculator();
         parser = new LogParser();
 
@@ -84,8 +86,14 @@ public class WakfuMeterApp extends Application {
 
     private void handleBattleEvent(BattleEvent battleEvent) {
         switch (battleEvent.getState()) {
-            case START -> uiManager.showMessage("Combat", "Début du combat détecté !");
-            case END -> uiManager.showMessage("Combat", "Fin du combat détectée !");
+            case START -> {
+                // Début du combat
+                uiManager.showMessage("Combat", "Début du combat détecté !");
+                uiManager.handleCombatStart(); // ✅ Auto-reset si activé
+            }
+            case END -> {
+                uiManager.showMessage("Combat", "Combat terminé !");
+            }
         }
     }
 
@@ -96,6 +104,7 @@ public class WakfuMeterApp extends Application {
         int totalDamage = calculator.calculateTotalDamage(players);
 
         uiManager.displayPlayerStats(players, totalDamage);
+//        uiManager.displayElementBreakdown(calculator.getElementalBreakdown());
     }
 
     @Override
@@ -105,6 +114,12 @@ public class WakfuMeterApp extends Application {
     }
 
     public static void main(String[] args) {
+        try {
+            System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
+            System.setErr(new PrintStream(System.err, true, StandardCharsets.UTF_8));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         launch(args);
     }
 }

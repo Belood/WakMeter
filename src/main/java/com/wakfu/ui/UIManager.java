@@ -1,10 +1,13 @@
 package com.wakfu.ui;
 
+import com.wakfu.domain.actors.Fighter;
 import com.wakfu.domain.actors.Player;
+import com.wakfu.service.DamageCalculator;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Label;
+import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -22,20 +25,42 @@ public class UIManager {
     private final Label statusLabel;
     private final GridPane playerGrid;
 
-    public UIManager(Stage primaryStage) {
+    // === Nouveaux éléments ===
+    private final Button resetButton;
+    private final CheckBox autoResetCheck;
+    private final DamageCalculator damageCalculator;
+
+    private boolean autoResetEnabled = false;
+
+    public UIManager(Stage primaryStage, DamageCalculator damageCalculator) {
         this.primaryStage = primaryStage;
+        this.damageCalculator = damageCalculator;
         this.mainContainer = new VBox(10);
         this.statusLabel = new Label("En attente de combat...");
         this.playerGrid = new GridPane();
+
+        this.resetButton = new Button("Reset");
+        this.autoResetCheck = new CheckBox("Auto-reset au début de combat");
 
         setupUI();
     }
 
     private void setupUI() {
-        mainContainer.setPadding(new Insets(10));
-        mainContainer.getChildren().addAll(statusLabel, playerGrid);
+        // --- HEADER ---
+        HBox header = new HBox(15);
+        header.setAlignment(Pos.CENTER_LEFT);
+        header.setPadding(new Insets(10));
 
-        Scene scene = new Scene(mainContainer, 600, 400);
+        resetButton.setOnAction(e -> resetData());
+        autoResetCheck.selectedProperty().addListener((obs, oldVal, newVal) -> autoResetEnabled = newVal);
+
+        header.getChildren().addAll(resetButton, autoResetCheck, statusLabel);
+
+        // --- Conteneur principal ---
+        mainContainer.setPadding(new Insets(10));
+        mainContainer.getChildren().addAll(header, playerGrid);
+
+        Scene scene = new Scene(mainContainer, 700, 450);
         primaryStage.setScene(scene);
         primaryStage.setTitle("Wakfu Damage Meter");
         primaryStage.show();
@@ -49,7 +74,25 @@ public class UIManager {
     }
 
     /**
-     * Rafraîchit l'affichage de la liste des joueurs.
+     * Réinitialise toutes les données du Damage Calculator.
+     */
+    private void resetData() {
+        damageCalculator.reset();
+        showMessage("Réinitialisation", "Les statistiques ont été remises à zéro.");
+        playerGrid.getChildren().clear();
+    }
+
+    /**
+     * Réinitialisation automatique si activée.
+     */
+    public void handleCombatStart() {
+        if (autoResetEnabled) {
+            resetData();
+        }
+    }
+
+    /**
+     * Rafraîchit l'affichage de la liste des joueurs (ignore les ennemis).
      */
     public void displayPlayerStats(List<Player> players, int totalDamage) {
         Platform.runLater(() -> {
@@ -57,6 +100,9 @@ public class UIManager {
 
             int row = 0;
             for (Player p : players) {
+                if (p.getType() != Fighter.FighterType.PLAYER)
+                    continue;
+
                 double pct = totalDamage > 0
                         ? (double) p.getTotalDamage() / totalDamage
                         : 0.0;
@@ -68,6 +114,14 @@ public class UIManager {
                 );
 
                 HBox rowBox = playerUI.render();
+
+                // --- Bouton Breakdown ---
+                Button breakdownButton = new Button("Breakdown");
+                breakdownButton.setOnAction(e -> new DamageBreakdownUI(p).show());
+
+                rowBox.getChildren().add(breakdownButton);
+                rowBox.setSpacing(10);
+
                 playerGrid.add(rowBox, 0, row++);
             }
         });

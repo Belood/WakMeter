@@ -9,8 +9,8 @@ import com.wakfu.domain.event.CombatEvent;
 import com.wakfu.domain.event.EventType;
 import com.wakfu.domain.event.LogEvent;
 
-import java.io.IOException;
-import java.io.RandomAccessFile;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -41,22 +41,28 @@ public class LogParser {
         if (watchThread != null && watchThread.isAlive()) watchThread.interrupt();
     }
 
+    /**
+     * Lecture du fichier en UTF-8, en temps réel (comme tail -f)
+     */
     private void watchFile(Path logFilePath, Consumer<LogEvent> onEvent) {
-        try (RandomAccessFile file = new RandomAccessFile(logFilePath.toFile(), "r")) {
-            long pointer = file.length();
+        try (FileInputStream fis = new FileInputStream(logFilePath.toFile());
+             InputStreamReader isr = new InputStreamReader(fis, StandardCharsets.UTF_8);
+             BufferedReader br = new BufferedReader(isr)) {
+
+            System.out.println("[Parser] Watching log in UTF-8: " + logFilePath);
+
+            // ⚡ Aller directement à la fin du fichier (ignorer tout l’historique)
+            long skipped = fis.skip(fis.available());
+            System.out.println("[Parser] Ignored existing content (" + skipped + " bytes)");
+
+            String line;
             while (running) {
-                long len = file.length();
-                if (len < pointer) pointer = len;
-                else if (len > pointer) {
-                    file.seek(pointer);
-                    String line;
-                    while ((line = file.readLine()) != null) {
-                        processLine(line.trim(), onEvent);
-                    }
-                    pointer = file.getFilePointer();
+                while ((line = br.readLine()) != null) {
+                    processLine(line.trim(), onEvent);
                 }
                 Thread.sleep(300);
             }
+
         } catch (IOException | InterruptedException e) {
             System.err.println("[Parser] Error: " + e.getMessage());
         }
@@ -64,13 +70,11 @@ public class LogParser {
 
     private void processLine(String line, Consumer<LogEvent> onEvent) {
         if (line.isEmpty()) return;
-
         // --- Début combat ---
         if (LogPatterns.START_COMBAT.matcher(line).find()) {
             inCombat = true;
             fighters.clear();
             lastAbilityByCaster.clear();
-
             BattleEvent startEvent = new BattleEvent(LocalDateTime.now(), BattleEvent.BattleState.START);
             onEvent.accept(startEvent);
             System.out.println("[Parser] >>> Combat started <<<");
@@ -80,7 +84,6 @@ public class LogParser {
         // --- Fin combat ---
         if (LogPatterns.END_COMBAT.matcher(line).find()) {
             inCombat = false;
-
             BattleEvent endEvent = new BattleEvent(LocalDateTime.now(), BattleEvent.BattleState.END);
             onEvent.accept(endEvent);
             System.out.println("[Parser] <<< Combat ended >>>");
@@ -101,6 +104,7 @@ public class LogParser {
                     : new Player(name, id, null);
 
             fighters.put(name, fighter);
+            System.out.printf("[Parser] Fighter detected: %s [%s, id=%d]%n", name, fighter.getType(), id);
             return;
         }
 
@@ -112,26 +116,30 @@ public class LogParser {
             Ability ability = new Ability(spellName, "Inconnu");
             lastAbilityByCaster.put(casterName, ability);
             lastCastTime.put(casterName, System.currentTimeMillis());
+            System.out.printf("[Parser] %s lance %s%n", casterName, spellName);
             return;
         }
 
-        // --- Dégâts ---
+        // --- DÉGÂTS ---
         Matcher mDamage = LogPatterns.DAMAGE.matcher(line);
         if (mDamage.find()) {
+            System.out.println("[Parser] DAMAGE matched line: " + line);
             handleCombatAction(mDamage, EventType.DAMAGE, onEvent);
             return;
         }
 
-        // --- Soin ---
+        // --- SOINS ---
         Matcher mHeal = LogPatterns.HEAL.matcher(line);
         if (mHeal.find()) {
+            System.out.println("[Parser] HEAL matched line: " + line);
             handleCombatAction(mHeal, EventType.HEAL, onEvent);
             return;
         }
 
-        // --- Bouclier ---
+        // --- BOUCLIER ---
         Matcher mShield = LogPatterns.SHIELD.matcher(line);
         if (mShield.find()) {
+            System.out.println("[Parser] SHIELD matched line: " + line);
             handleCombatAction(mShield, EventType.SHIELD, onEvent);
         }
     }
@@ -162,14 +170,16 @@ public class LogParser {
                 value
         );
 
+        System.out.printf("[Parser] MATCH %s → %s: %d (%s)%n",
+                type, targetName, value, element);
+
         onEvent.accept(event);
     }
-
 
     private Fighter findRecentCaster() {
         long now = System.currentTimeMillis();
         return lastCastTime.entrySet().stream()
-                .filter(e -> now - e.getValue() < 1500)
+                .filter(e -> now - e.getValue() < 3000)
                 .map(Map.Entry::getKey)
                 .findFirst()
                 .map(name -> fighters.getOrDefault(name, new Player(name, -1, null)))
@@ -177,7 +187,13 @@ public class LogParser {
     }
 
     private int parseIntSafe(String s) {
-        try { return Integer.parseInt(s.replaceAll("[^0-9]", "")); }
-        catch (Exception e) { return 0; }
+        try {
+            if (s == null) return 0;
+            String cleaned = s.replaceAll("[^0-9]", "");
+            return cleaned.isEmpty() ? 0 : Integer.parseInt(cleaned);
+        } catch (Exception e) {
+            System.err.println("[Parser] Invalid number: " + s);
+            return 0;
+        }
     }
 }
