@@ -1,6 +1,8 @@
 package com.wakfu.domain.actors;
 
 import com.wakfu.domain.abilities.Ability;
+import com.wakfu.domain.abilities.Element;
+import com.wakfu.domain.abilities.DamageSourceType;
 import com.wakfu.domain.abilities.SpellDamage;
 import com.wakfu.domain.event.EventType;
 
@@ -8,54 +10,50 @@ import java.util.*;
 
 /**
  * Représente un joueur (hérite de Fighter).
+ * Gère les dégâts directs et indirects, ainsi que le breakdown par sort et par élément.
  */
 public class Player extends Fighter {
 
-    /** Liste complète des actions du joueur (dégâts, soins, boucliers). */
     private final List<SpellDamage> spells = new ArrayList<>();
-
-    /** Classe du joueur (Iop, Eniripsa, etc.) */
-    private PlayerClass playerClass;
-
-    /** Registre des dégâts par sort (utilisé pour le breakdown UI). */
     private final Map<String, Integer> damageByAbility = new HashMap<>();
+    private final Map<Element, Integer> damageByElement = new EnumMap<>(Element.class);
+    private final Map<DamageSourceType, Integer> damageBySourceType = new EnumMap<>(DamageSourceType.class);
+    private final Map<String, Element> elementByAbility = new HashMap<>();
+    private PlayerClass playerClass;
 
     public Player(String name, long id, FighterType type) {
         super(name, id, type);
+
+        for (Element e : Element.values()) {
+            damageByElement.put(e, 0);
+        }
+        for (DamageSourceType s : DamageSourceType.values()) {
+            damageBySourceType.put(s, 0);
+        }
     }
 
-    // ============================================================
-    // 🔹 Gestion des actions (dégâts, soins, boucliers)
-    // ============================================================
-
+    // --- Gestion des dégâts / soins / boucliers ---
     public void addSpellDamage(Ability ability, int value) {
+        if (ability == null || value <= 0) return;
+
         spells.add(new SpellDamage(ability, value, EventType.DAMAGE));
-        addDamage(ability.getName(), value);
+        damageByAbility.merge(ability.getName(), value, Integer::sum);
+        damageByElement.merge(ability.getElement(), value, Integer::sum);
+        damageBySourceType.merge(ability.getSourceType(), value, Integer::sum);
+        elementByAbility.putIfAbsent(ability.getName(), ability.getElement());
     }
 
     public void addSpellHeal(Ability ability, int value) {
+        if (ability == null || value <= 0) return;
         spells.add(new SpellDamage(ability, value, EventType.HEAL));
     }
 
     public void addSpellShield(Ability ability, int value) {
+        if (ability == null || value <= 0) return;
         spells.add(new SpellDamage(ability, value, EventType.SHIELD));
     }
 
-    // ============================================================
-    // 🔹 Dégâts cumulés
-    // ============================================================
-
-    /**
-     * Ajoute ou cumule les dégâts pour un sort donné.
-     */
-    public void addDamage(String abilityName, int value) {
-        if (abilityName == null || abilityName.isBlank()) return;
-        damageByAbility.merge(abilityName, value, Integer::sum);
-    }
-
-    /**
-     * Renvoie la somme totale des dégâts infligés.
-     */
+    // --- Totaux globaux ---
     public int getTotalDamage() {
         return spells.stream()
                 .filter(s -> s.getType() == EventType.DAMAGE)
@@ -63,9 +61,6 @@ public class Player extends Fighter {
                 .sum();
     }
 
-    /**
-     * Renvoie la somme totale des soins prodigués.
-     */
     public int getTotalHeal() {
         return spells.stream()
                 .filter(s -> s.getType() == EventType.HEAL)
@@ -73,9 +68,6 @@ public class Player extends Fighter {
                 .sum();
     }
 
-    /**
-     * Renvoie la somme totale des boucliers générés.
-     */
     public int getTotalShield() {
         return spells.stream()
                 .filter(s -> s.getType() == EventType.SHIELD)
@@ -83,18 +75,24 @@ public class Player extends Fighter {
                 .sum();
     }
 
-    // ============================================================
-    // 🔹 Getters / Setters
-    // ============================================================
+    // --- Breakdowns ---
+    public Map<String, Integer> getDamageByAbility() {
+        return Collections.unmodifiableMap(damageByAbility);
+    }
+
+    public Map<Element, Integer> getDamageByElement() {
+        return Collections.unmodifiableMap(damageByElement);
+    }
+
+    public Map<DamageSourceType, Integer> getDamageBySourceType() {
+        return Collections.unmodifiableMap(damageBySourceType);
+    }
 
     public List<SpellDamage> getSpells() {
         return Collections.unmodifiableList(spells);
     }
 
-    public Map<String, Integer> getDamageByAbility() {
-        return Collections.unmodifiableMap(damageByAbility);
-    }
-
+    // --- Métadonnées ---
     public void setPlayerClass(PlayerClass playerClass) {
         this.playerClass = playerClass;
     }
@@ -110,6 +108,11 @@ public class Player extends Fighter {
 
     @Override
     public String toString() {
-        return String.format("%s [%s] - %d dégâts", getName(), getType(), getTotalDamage());
+        return String.format("%s [Dégâts: %d, Soins: %d, Boucliers: %d]",
+                name, getTotalDamage(), getTotalHeal(), getTotalShield());
+    }
+
+    public Map<String, Element> getElementByAbility() {
+        return elementByAbility;
     }
 }

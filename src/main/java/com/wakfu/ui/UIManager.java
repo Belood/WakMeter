@@ -51,7 +51,9 @@ public class UIManager {
         header.setAlignment(Pos.CENTER_LEFT);
         header.setPadding(new Insets(10));
 
-        resetButton.setOnAction(e -> resetData());
+        resetButton.setOnAction(e -> {
+            resetData();
+        });
         autoResetCheck.selectedProperty().addListener((obs, oldVal, newVal) -> autoResetEnabled = newVal);
 
         header.getChildren().addAll(resetButton, autoResetCheck, statusLabel);
@@ -77,9 +79,13 @@ public class UIManager {
      * Réinitialise toutes les données du Damage Calculator.
      */
     private void resetData() {
-        damageCalculator.reset();
-        showMessage("Réinitialisation", "Les statistiques ont été remises à zéro.");
-        playerGrid.getChildren().clear();
+        if (damageCalculator != null) {
+            damageCalculator.reset();
+        }
+        Platform.runLater(() -> {
+            playerGrid.getChildren().clear();
+            statusLabel.setText("En attente de combat...");
+        });
     }
 
     /**
@@ -87,7 +93,7 @@ public class UIManager {
      */
     public void handleCombatStart() {
         if (autoResetEnabled) {
-            resetData();
+            Platform.runLater(this::resetData);
         }
     }
 
@@ -100,29 +106,28 @@ public class UIManager {
 
             int row = 0;
             for (Player p : players) {
-                if (p.getType() != Fighter.FighterType.PLAYER)
-                    continue;
+                 if (p.getType() == Fighter.FighterType.PLAYER){
+                    double pct = totalDamage > 0
+                            ? (double) p.getTotalDamage() / totalDamage
+                            : 0.0;
 
-                double pct = totalDamage > 0
-                        ? (double) p.getTotalDamage() / totalDamage
-                        : 0.0;
+                    PlayerUI playerUI = new PlayerUI(
+                            p.getName(),
+                            p.getTotalDamage(),
+                            pct
+                    );
 
-                PlayerUI playerUI = new PlayerUI(
-                        p.getName(),
-                        p.getTotalDamage(),
-                        pct
-                );
+                    HBox rowBox = playerUI.render();
 
-                HBox rowBox = playerUI.render();
+                    // --- Bouton Breakdown ---
+                    Button breakdownButton = new Button("Breakdown");
+                    breakdownButton.setOnAction(e -> new DamageBreakdownUI(p).show());
 
-                // --- Bouton Breakdown ---
-                Button breakdownButton = new Button("Breakdown");
-                breakdownButton.setOnAction(e -> new DamageBreakdownUI(p).show());
+                    rowBox.getChildren().add(breakdownButton);
+                    rowBox.setSpacing(10);
 
-                rowBox.getChildren().add(breakdownButton);
-                rowBox.setSpacing(10);
-
-                playerGrid.add(rowBox, 0, row++);
+                    playerGrid.add(rowBox, 0, row++);
+                }
             }
         });
     }

@@ -33,8 +33,8 @@ public class WakfuMeterApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        uiManager = new UIManager(primaryStage, calculator); // ✅ nouveau constructeur
         calculator = new DamageCalculator();
+        uiManager = new UIManager(primaryStage, calculator);
         parser = new LogParser();
 
         try {

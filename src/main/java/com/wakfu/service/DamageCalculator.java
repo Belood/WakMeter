@@ -2,25 +2,27 @@ package com.wakfu.service;
 
 import com.wakfu.domain.abilities.Ability;
 import com.wakfu.domain.abilities.Element;
+import com.wakfu.domain.abilities.DamageSourceType;
+import com.wakfu.domain.actors.Fighter;
 import com.wakfu.domain.actors.Player;
 import com.wakfu.domain.event.CombatEvent;
 import com.wakfu.domain.event.EventType;
-
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Gère le cumul des dégâts, soins et boucliers pour chaque joueur,
- * avec un breakdown par sort et par élément.
+ * avec un breakdown par sort, élément et type de source.
  */
 public class DamageCalculator {
 
-    // Map principale : nom du joueur -> Player
+    // --- Statistiques globales ---
     private final Map<String, Player> playerStats = new ConcurrentHashMap<>();
-
-    // Breakdown élémentaire global : Feu, Terre, Eau, Air, Lumière, Stasis
     private final Map<Element, Integer> totalByElement = new EnumMap<>(Element.class);
+
+    // Pour éviter le double comptage
+    private final Set<Integer> processedEvents = Collections.synchronizedSet(new HashSet<>());
 
     public DamageCalculator() {
         for (Element e : Element.values()) {
@@ -33,9 +35,19 @@ public class DamageCalculator {
      */
     public synchronized void updateWithEvent(CombatEvent event) {
         if (event == null || event.getCaster() == null) return;
+        if (event.getType() != EventType.DAMAGE) return; // on ignore les soins et boucliers
+
+        int hash = event.hashCode();
+        if (processedEvents.contains(hash)) return; // évite doublon
+        processedEvents.add(hash);
 
         String playerName = event.getCaster().getName();
-        if (playerName == null || playerName.isBlank()) return;
+        if (playerName == null || playerName.isBlank() || event.getCaster().getType() == Fighter.FighterType.ENEMY) return;
+
+        // Regroupe tous les dégâts indirects sous un joueur "Indirect"
+        if (event.getSourceType() == DamageSourceType.INDIRECT) {
+            playerName = "Indirect";
+        }
 
         Player player = playerStats.computeIfAbsent(
                 playerName,
@@ -43,25 +55,21 @@ public class DamageCalculator {
         );
 
         Ability ability = event.getAbility();
-        int value = event.getValue();
+        int value = Math.max(event.getValue(), 0);
         Element element = event.getElement();
 
-        switch (event.getType()) {
-            case DAMAGE -> {
-                player.addSpellDamage(ability, value);
-                addElementalDamage(element, value);
-            }
-            case HEAL -> player.addSpellHeal(ability, value);
-            case SHIELD -> player.addSpellShield(ability, value);
-            default -> {}
-        }
+        // Mise à jour du breakdown du joueur
+        player.addSpellDamage(ability, value);
+
+        // Mise à jour du total par élément
+        addElementalDamage(element, value);
     }
 
     /**
      * Ajoute des dégâts à l'élément concerné (Feu, Eau, etc.)
      */
     private void addElementalDamage(Element element, int value) {
-        if (element == null) element = Element.UNKNOWN;
+        if (element == null) element = Element.INCONNU;
         totalByElement.merge(element, value, Integer::sum);
     }
 
@@ -89,12 +97,11 @@ public class DamageCalculator {
     }
 
     /**
-     * Réinitialise toutes les statistiques (début de combat).
+     * Réinitialise toutes les statistiques.
      */
     public synchronized void reset() {
         playerStats.clear();
+        processedEvents.clear();
         totalByElement.replaceAll((e, v) -> 0);
     }
-
-
 }

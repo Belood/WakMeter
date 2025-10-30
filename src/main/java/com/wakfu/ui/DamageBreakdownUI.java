@@ -1,6 +1,7 @@
 package com.wakfu.ui;
 
 import com.wakfu.domain.actors.Player;
+import com.wakfu.domain.abilities.Element;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
@@ -15,7 +16,7 @@ import java.util.Map;
 
 /**
  * Fenêtre affichant le breakdown des dégâts d’un joueur,
- * avec barres horizontales et pourcentages.
+ * avec barres horizontales colorées selon l’élément du sort.
  */
 public class DamageBreakdownUI {
 
@@ -32,6 +33,7 @@ public class DamageBreakdownUI {
         stage.setTitle("Breakdown - " + player.getName());
 
         Map<String, Integer> damageMap = player.getDamageByAbility();
+        Map<String, Element> elementMap = player.getElementByAbility(); // ← à exposer dans Player
         int total = damageMap.values().stream().mapToInt(Integer::intValue).sum();
         if (total == 0) total = 1;
 
@@ -53,6 +55,9 @@ public class DamageBreakdownUI {
                     int dmg = entry.getValue();
                     double pct = (double) dmg / finalTotal;
 
+                    Element element = elementMap.getOrDefault(spell, Element.INCONNU);
+                    String color = getColorForElement(element);
+
                     HBox row = new HBox(10);
                     row.setAlignment(Pos.CENTER_LEFT);
 
@@ -61,7 +66,7 @@ public class DamageBreakdownUI {
 
                     ProgressBar bar = new ProgressBar(pct);
                     bar.setPrefWidth(250);
-                    bar.setStyle("-fx-accent: #ff6b6b;");
+                    bar.setStyle("-fx-accent: " + color + ";");
 
                     Label dmgLabel = new Label(String.format("%,d", dmg));
                     dmgLabel.setPrefWidth(90);
@@ -82,6 +87,21 @@ public class DamageBreakdownUI {
         Scene scene = new Scene(container, 600, 500);
         stage.setScene(scene);
         stage.setAlwaysOnTop(true);
+    }
+
+    /**
+     * Retourne la couleur correspondant à l’élément.
+     */
+    private String getColorForElement(Element element) {
+        return switch (element) {
+            case FEU -> "#ff4b4b";       // Rouge
+            case EAU -> "#4b8cff";       // Bleu
+            case TERRE -> "#4bff6b";     // Vert
+            case AIR -> "#b44bff";       // Violet
+            case LUMIERE -> "#ffd84b";   // Jaune clair
+            case STASIS -> "#9c9c9c";    // Gris
+            default -> "#cccccc";        // Neutre/inconnu
+        };
     }
 
     /**
