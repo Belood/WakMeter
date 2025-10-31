@@ -3,6 +3,7 @@ package com.wakfu;
 import com.wakfu.domain.actors.Player;
 import com.wakfu.domain.event.*;
 import com.wakfu.parser.LogParser;
+import com.wakfu.parser.LogProcessor;
 import com.wakfu.service.DamageCalculator;
 import com.wakfu.ui.UIManager;
 import javafx.application.Application;
@@ -27,6 +28,7 @@ public class WakfuMeterApp extends Application {
     private LogParser parser;
     private DamageCalculator calculator;
     private UIManager uiManager;
+    private LogProcessor logProcessor;
 
     // Répertoire des logs Wakfu
     private static final Path LOG_DIR = Paths.get("C:\\Users\\alex_\\AppData\\Roaming\\zaap\\gamesLogs\\wakfu\\logs");
@@ -35,7 +37,8 @@ public class WakfuMeterApp extends Application {
     public void start(Stage primaryStage) {
         calculator = new DamageCalculator();
         uiManager = new UIManager(primaryStage, calculator);
-        parser = new LogParser();
+        logProcessor = new LogProcessor();
+        parser = new LogParser(logProcessor);
 
         try {
             Path logFile = findLatestLogFile(LOG_DIR);

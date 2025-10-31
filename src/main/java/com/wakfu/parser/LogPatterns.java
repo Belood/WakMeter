@@ -26,17 +26,15 @@ public final class LogPatterns {
     );
 
     // === DÉGÂTS DIRECTS ===
-    // Une seule parenthèse d’élément.
     public static final Pattern DAMAGE_DIRECT = Pattern.compile(
             "(?U)\\[Information \\(combat\\)\\]\\s+([^:]+):\\s*[−–-]?\\s*([\\d\\s\\p{Zs}]+)\\s*PV\\s*\\(([^)]+)\\)\\s*$"
     );
 
     // === DÉGÂTS INDIRECTS ===
-    // Une ou deux parenthèses d’élément, si l’une est (Lumière).
-    // Exemple : (Lumière) (Feu) (Lame Sanglante)
     public static final Pattern DAMAGE_INDIRECT = Pattern.compile(
             "(?U)\\[Information \\(combat\\)\\]\\s+([^:]+):\\s*[−–-]?\\s*([\\d\\s\\p{Zs}]+)\\s*PV\\s*((?:\\([^)]*\\)\\s*){2,})"
     );
+
 
     /** Soins */
     public static final Pattern HEAL = Pattern.compile(

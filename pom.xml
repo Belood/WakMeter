@@ -45,6 +45,82 @@
                     <mainClass>com.wakfu.WakfuMeterApp</mainClass>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>create-custom-runtime</id>
+                        <phase>package</phase>
+                        <configuration>
+                            <target>
+                                <echo>🧩 Génération d’un runtime minimal via jlink...</echo>
+                                <exec executable="jlink">
+                                    <arg value="--module-path"/>
+                                    <arg value="D:\Java\javafx-sdk-25.0.1\lib"/>
+
+                                    <arg value="--add-modules"/>
+                                    <arg value="java.base,javafx.controls,javafx.fxml,javafx.graphics"/>
+                                    <arg value="--strip-debug"/>
+                                    <arg value="--no-header-files"/>
+                                    <arg value="--no-man-pages"/>
+                                    <arg value="--output"/>
+                                    <arg value="${project.build.directory}/custom-runtime"/>
+                                </exec>
+                            </target>
+                        </configuration>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.panteleyev</groupId>
+                <artifactId>jpackage-maven-plugin</artifactId>
+                <version>1.7.1</version>
+
+                <executions>
+                    <execution>
+                        <id>package-exe</id>
+                        <goals>
+                            <goal>jpackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
+
+                <configuration>
+                    <!-- Info principale -->
+                    <mainClass>com.wakfu.WakfuMeterApp</mainClass>
+                    <name>Wakfu Damage Meter</name>
+                    <appVersion>1.0.0</appVersion>
+                    <vendor>Alexandre Ung</vendor>
+
+                    <!-- Entrées -->
+                    <input>${project.build.directory}</input>
+                    <mainJar>${project.build.finalName}.jar</mainJar>
+                    <destination>${project.build.directory}/dist</destination>
+                    <!-- Modules JavaFX -->
+                    <javaOptions>
+                        <option>--add-modules</option>
+                        <option>javafx.controls,javafx.fxml</option>
+                        <option>--enable-preview</option>
+                    </javaOptions>
+
+                    <!-- Runtime minimal avec jlink -->
+                    <runtimeImage>${project.build.directory}/custom-runtime</runtimeImage>
+
+                    <!-- Options Windows -->
+                    <winMenu>true</winMenu>
+                    <winShortcut>true</winShortcut>
+                    <winDirChooser>true</winDirChooser>
+
+                    <!-- Icône personnalisée -->
+<!--                    <icon>src/main/resources/icon.ico</icon>-->
+                </configuration>
+            </plugin>
         </plugins>
     </build>
 </project>
