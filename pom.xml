@@ -10,9 +10,9 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.source>23</maven.compiler.source>
-        <maven.compiler.target>23</maven.compiler.target>
-        <javafx.version>23</javafx.version>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <javafx.version>21</javafx.version>
         <!-- Ajustez ce chemin localement si nécessaire (chemin vers le dossier lib du SDK JavaFX) -->
         <javafx.sdk.path>D:\Java\javafx-sdk-25.0.1\lib</javafx.sdk.path>
     </properties>
