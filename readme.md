@@ -1,6 +1,33 @@
-# 🧮 Damage Meter Application — UML Design
+# 🧮 WakMeter - Wakfu Damage Meter
 
-This document presents the **UML class diagram** and **sequence diagram** for a *Damage Meter* application.  
+WakMeter is a damage meter application for the game Wakfu. It parses combat log files in real-time, calculates per-player and per-ability damage, and displays statistics in a JavaFX-based user interface with detailed breakdown functionality.
+
+## 🚀 Quick Start
+
+### Download and Run
+
+1. Download the latest `WakMeter.exe` from the releases page
+2. Make sure you have Java 21 or higher installed
+3. Double-click `WakMeter.exe` to run
+
+### Building from Source
+
+See [BUILD.md](BUILD.md) for detailed build instructions.
+
+Quick build:
+```bash
+mvn clean package
+```
+
+This creates:
+- `target/WakMeter-1.0.0-SNAPSHOT.jar` - Standalone JAR file
+- `target/WakMeter.exe` - Windows executable
+
+---
+
+## 📐 UML Design
+
+This section presents the **UML class diagram** and **sequence diagram** for the application architecture.  
 The app parses a combat log file, calculates per-player and per-ability damage, and displays it in a simple UI with breakdown functionality.
 
 ---

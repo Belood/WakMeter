@@ -90,6 +90,49 @@
                 <!-- NOTICE: this execution has been moved into the `jpackage` profile below to avoid requiring jlink on every build -->
             </plugin>
 
+            <!-- Launch4j: Creates Windows executable (.exe) from JAR -->
+            <plugin>
+                <groupId>com.akathist.maven.plugins.launch4j</groupId>
+                <artifactId>launch4j-maven-plugin</artifactId>
+                <version>2.5.2</version>
+                <executions>
+                    <execution>
+                        <id>create-windows-exe</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>launch4j</goal>
+                        </goals>
+                        <configuration>
+                            <headerType>gui</headerType>
+                            <outfile>${project.build.directory}/WakMeter.exe</outfile>
+                            <jar>${project.build.directory}/${project.build.finalName}.jar</jar>
+                            <errTitle>WakMeter Error</errTitle>
+                            <classPath>
+                                <mainClass>com.wakfu.WakfuMeterApp</mainClass>
+                            </classPath>
+                            <icon>src/main/resources/assets/icon.ico</icon>
+                            <jre>
+                                <minVersion>21</minVersion>
+                                <opts>
+                                    <opt>-Xmx512m</opt>
+                                </opts>
+                            </jre>
+                            <versionInfo>
+                                <fileVersion>1.0.0.0</fileVersion>
+                                <txtFileVersion>${project.version}</txtFileVersion>
+                                <fileDescription>WakMeter - Wakfu Damage Meter</fileDescription>
+                                <copyright>Wakfu</copyright>
+                                <productVersion>1.0.0.0</productVersion>
+                                <txtProductVersion>${project.version}</txtProductVersion>
+                                <productName>WakMeter</productName>
+                                <internalName>WakMeter</internalName>
+                                <originalFilename>WakMeter.exe</originalFilename>
+                            </versionInfo>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 
