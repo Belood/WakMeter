@@ -14,7 +14,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <javafx.version>21</javafx.version>
         <!-- Ajustez ce chemin localement si nécessaire (chemin vers le dossier lib du SDK JavaFX) -->
-        <javafx.sdk.path>D:\Java\javafx-sdk-25.0.1\lib</javafx.sdk.path>
+        <javafx.sdk.path>D:\Java\javafx-sdk-21\lib</javafx.sdk.path>
     </properties>
 
     <dependencies>
