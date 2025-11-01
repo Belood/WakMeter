@@ -1,5 +1,59 @@
-{
-  "Wakméha": 4,
-  "Exaltation" : 4,
-  ""
-}
+[{
+  "Eliotrope": {
+    "Wakméha": 4,
+    "Pulsation": 2,
+    "Déluge": 3,
+    "Tourbillon": 2,
+    "Cataclysme": 5,
+    "Targe fracassante": 3,
+    "Egide ardente": 3,
+    "Séisme": 4,
+    "Heurt": 4,
+    "Raclée": 3,
+    "Flux torrentiel": 4,
+    "Siphon": 2,
+    "Salve éthérée": 3,
+    "Tempête": 5,
+    "Lame déchaînée": 5,
+    "Exaltation": 0,
+    "Incandescence": 1
+  },
+  "Iop": {
+    "Épée céleste": 2,
+    "Fulgur": 3,
+    "Super Iop Punch": 4,
+    "Colère de Iop": 6,
+    "Jugement": 1,
+    "Ébranler": 2,
+    "Roknocerok": 4,
+    "Fendoir": 3,
+    "Charge": 1,
+    "Ravage": 5,
+    "Jabs": 3,
+    "Rafale": 1,
+    "Torgnole": 2,
+    "Tannée": 4,
+    "Épée de Iop": 3
+  },
+  "Sram": {
+    "Premier Sang": 2,
+    "Châtiment": 4,
+    "Ouvrir les veines": 2,
+    "Saignée mortelle": 3,
+    "Mise à mort": 6,
+    "Kleptosram": 5,
+    "Filouterie": 4,
+    "Attaque perfide": 3,
+    "Escrosramerie": 3,
+    "Arnaque": 2,
+    "Coup pénétrant": 4,
+    "Peur": 2,
+    "Fourberie": 3,
+    "Coup Sournois": 3,
+    "Traumatisme": 3
+
+  },
+  "Cra":{
+
+  }
+}]

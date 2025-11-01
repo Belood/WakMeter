@@ -1,107 +1,113 @@
 package com.wakfu.service;
 
-import com.wakfu.domain.abilities.Ability;
+import com.wakfu.model.FightModel;
+import com.wakfu.model.PlayerStats;
+import com.wakfu.model.SpellStats;
 import com.wakfu.domain.abilities.Element;
-import com.wakfu.domain.abilities.DamageSourceType;
-import com.wakfu.domain.actors.Fighter;
-import com.wakfu.domain.actors.Player;
-import com.wakfu.domain.event.CombatEvent;
-import com.wakfu.domain.event.EventType;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
- * Gère le cumul des dégâts, soins et boucliers pour chaque joueur,
- * avec un breakdown par sort, élément et type de source.
+ * Classe utilitaire stateless permettant de calculer et agréger
+ * les statistiques du modèle de combat pour l'affichage ou l'analyse.
  */
 public class DamageCalculator {
 
-    // --- Statistiques globales ---
-    private final Map<String, Player> playerStats = new ConcurrentHashMap<>();
-    private final Map<Element, Integer> totalByElement = new EnumMap<>(Element.class);
+    // État cache optionnel (peut être nul)
+    private FightModel lastModel;
 
-    // Pour éviter le double comptage
-    private final Set<Integer> processedEvents = Collections.synchronizedSet(new HashSet<>());
-
-    public DamageCalculator() {
-        for (Element e : Element.values()) {
-            totalByElement.put(e, 0);
-        }
+    /**
+     * Calcule les dégâts totaux infligés par tous les joueurs.
+     */
+    public int getTotalDamage(FightModel fight) {
+        if (fight == null) return 0;
+        return fight.getStatsByPlayer().values().stream()
+                .mapToInt(PlayerStats::getTotalDamage)
+                .sum();
     }
 
     /**
-     * Met à jour les statistiques à partir d’un événement de combat.
+     * Retourne les joueurs triés par dégâts infligés (du plus haut au plus bas).
      */
-    public synchronized void updateWithEvent(CombatEvent event) {
-        if (event == null || event.getCaster() == null) return;
-        if (event.getType() != EventType.DAMAGE) return; // on ignore les soins et boucliers
-
-        int hash = event.hashCode();
-        if (processedEvents.contains(hash)) return; // évite doublon
-        processedEvents.add(hash);
-
-        String playerName = event.getCaster().getName();
-        if (playerName == null || playerName.isBlank() || event.getCaster().getType() == Fighter.FighterType.ENEMY) return;
-
-        // Regroupe tous les dégâts indirects sous un joueur "Indirect"
-        if (event.getSourceType() == DamageSourceType.INDIRECT) {
-            playerName = "Indirect";
-        }
-
-        Player player = playerStats.computeIfAbsent(
-                playerName,
-                name -> new Player(name, event.getCaster().getId(), event.getCaster().getType())
-        );
-
-        Ability ability = event.getAbility();
-        int value = Math.max(event.getValue(), 0);
-        Element element = event.getElement();
-
-        // Mise à jour du breakdown du joueur
-        player.addSpellDamage(ability, value);
-
-        // Mise à jour du total par élément
-        addElementalDamage(element, value);
+    @SuppressWarnings("unused")
+    public List<PlayerStats> getPlayersByDamage(FightModel fight) {
+        if (fight == null) return List.of();
+        return fight.getStatsByPlayer().values().stream()
+                .sorted(Comparator.comparingInt(PlayerStats::getTotalDamage).reversed())
+                .collect(Collectors.toList());
     }
 
     /**
-     * Ajoute des dégâts à l'élément concerné (Feu, Eau, etc.)
+     * Calcule le breakdown global des dégâts par élément.
      */
-    private void addElementalDamage(Element element, int value) {
-        if (element == null) element = Element.INCONNU;
-        totalByElement.merge(element, value, Integer::sum);
+    @SuppressWarnings("unused")
+    public Map<Element, Integer> getDamageByElement(FightModel fight) {
+        Map<Element, Integer> result = new EnumMap<>(Element.class);
+
+        if (fight == null) return result;
+
+        fight.getStatsByPlayer().values().forEach(stats -> {
+            stats.getSpells().values().forEach(spell -> {
+                spell.getDamageByElement().forEach((element, dmg) ->
+                        result.merge(element, dmg, Integer::sum)
+                );
+            });
+        });
+
+        return result;
     }
 
     /**
-     * Liste complète des joueurs triés par dégâts infligés.
+     * Récupère les dégâts totaux par sort pour un joueur donné.
      */
-    public List<Player> getPlayers() {
-        List<Player> list = new ArrayList<>(playerStats.values());
-        list.sort(Comparator.comparingInt(Player::getTotalDamage).reversed());
-        return list;
+    @SuppressWarnings("unused")
+    public Map<String, Integer> getDamageBySpell(PlayerStats playerStats) {
+        if (playerStats == null) return Map.of();
+
+        return playerStats.getSpells().values().stream()
+                .collect(Collectors.toMap(
+                        SpellStats::getName,
+                        SpellStats::getTotal,
+                        Integer::sum,
+                        LinkedHashMap::new
+                ));
     }
 
     /**
-     * Dégâts totaux (tous joueurs confondus).
+     * Retourne le pourcentage des dégâts d’un joueur par rapport au total global.
      */
-    public int calculateTotalDamage(List<Player> players) {
-        return players.stream().mapToInt(Player::getTotalDamage).sum();
+    @SuppressWarnings("unused")
+    public double getDamagePercent(PlayerStats player, FightModel fight) {
+        int total = getTotalDamage(fight);
+        return total > 0 ? (double) player.getTotalDamage() / total : 0.0;
     }
 
     /**
-     * Breakdown global par élément.
+     * Calcule le DPS moyen d’un joueur (simple approximation).
      */
-    public Map<Element, Integer> getElementalBreakdown() {
-        return Collections.unmodifiableMap(totalByElement);
+    @SuppressWarnings("unused")
+    public double getPlayerDps(PlayerStats player, FightModel fight) {
+        if (fight == null || player == null || fight.getRounds().isEmpty()) return 0.0;
+        int totalDamage = player.getTotalDamage();
+        int totalRounds = fight.getRounds().size();
+        return totalRounds > 0 ? (double) totalDamage / totalRounds : totalDamage;
     }
 
-    /**
-     * Réinitialise toutes les statistiques.
-     */
-    public synchronized void reset() {
-        playerStats.clear();
-        processedEvents.clear();
-        totalByElement.replaceAll((e, v) -> 0);
+    // === Méthodes pour s'intégrer à la chaîne d'events ===
+    public void refreshFromModel(FightModel model) {
+        this.lastModel = model; // conserve le modèle si utile
+        // calculs paresseux possibles ici, mais on laisse DamageCalculator stateless pour l'instant
+        System.out.println("[DamageCalculator] Models refreshed");
+    }
+
+    @SuppressWarnings("unused")
+    public FightModel getLastModel() {
+        return lastModel;
+    }
+
+    @SuppressWarnings("unused")
+    public void reset() {
+        lastModel = null;
     }
 }

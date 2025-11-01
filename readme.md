@@ -8,118 +8,46 @@ The app parses a combat log file, calculates per-player and per-ability damage, 
 ## 🧩 Class Diagram
 
 ```mermaid
-classDiagram
-%% ===============================
-%% COUCHE METIER / MODELE
-%% ===============================
+graph TD
+    %% ====== SOURCES ET FLUX ======
+    subgraph "🧩 Log Processing"
+        A[📄 Fichier de log Wakfu] --> B[🔍 LogParser]
+        B --> C[⚙️ LogProcessor]
+        C --> D[🧠 EventProcessor]
+    end
 
-class Fighter {
-    <<abstract>>
-    - name: String
-    - id: long
-    - isControlledByAI: boolean
-    + getName(): String
-    + getId(): long
-    + isControlledByAI(): boolean
-    + getType(): FighterType
-}
+    subgraph "📊 Calculs et Modèle"
+        D --> E[📘 FightModel]
+        E --> F[📈 DamageCalculator]
+    end
 
-class FighterType {
-    <<enumeration>>
-    PLAYER
-    ENEMY
-}
+    subgraph "🎨 Interface Utilisateur (UI)"
+        F --> G[🪟 UIManager]
+        G --> H[📊 DamageBreakdownUI]
+    end
 
-class Player {
-    + playerClass: PlayerClass
-    + spells: List<SpellDamage>
-    + addSpellDamage(spell: SpellDamage): void
-    + getPlayerClass(): PlayerClass
-    + getType(): FighterType
-}
+    %% ====== RELATIONS INTERNES ======
+    style A fill:#3a3a3a,stroke:#888,color:#fff
+    style B fill:#6666ff,stroke:#222,color:#fff
+    style C fill:#4a90e2,stroke:#333,color:#fff
+    style D fill:#2c82c9,stroke:#333,color:#fff
+    style E fill:#2ecc71,stroke:#333,color:#fff
+    style F fill:#27ae60,stroke:#333,color:#fff
+    style G fill:#f39c12,stroke:#333,color:#fff
+    style H fill:#e67e22,stroke:#333,color:#fff
 
-class Enemy {
-    + breed: String
-    + getBreed(): String
-    + getType(): FighterType
-}
+    %% ====== DÉTAILS DE FLUX ======
+    %% WatchFile loop
+    B -. lit en continu .-> A
+    %% Event generation
+    B -->|Ligne analysée| C
+    C -->|Crée CombatEvent / BattleEvent| D
+    D -->|Met à jour| E
+    F -->|Calcule totaux + breakdown| E
+    E -->|Expose stats| G
+    G -->|Affiche joueurs| H
 
-Fighter <|-- Player
-Fighter <|-- Enemy
-
-class PlayerClass {
-    + name: String
-    + abilities: List<Ability>
-}
-
-class Ability {
-    + name: String
-    + element: String
-    + baseDamage: int
-}
-
-class SpellDamage {
-    + ability: Ability
-    + damageDealt: int
-}
-
-PlayerClass --> Ability
-Player --> SpellDamage
-SpellDamage --> Ability
-
-%% ===============================
-%% EVENEMENTS DE COMBAT
-%% ===============================
-
-class CombatEvent {
-    + timestamp: LocalDateTime
-    + caster: Fighter
-    + target: Fighter
-    + ability: Ability
-    + type: EventType
-    + value: int
-}
-
-class EventType {
-    <<enumeration>>
-    DAMAGE
-    HEAL
-    BUFF
-    KO
-    INSTANT_KO
-}
-
-CombatEvent --> Fighter : caster
-CombatEvent --> Fighter : target
-CombatEvent --> Ability
-
-%% ===============================
-%% COUCHE PARSING
-%% ===============================
-
-class WakfuLogParserV3 {
-    - fighters: Map<String, Fighter>
-    - lastAbilityByCaster: Map<String, Ability>
-    - lastCastTime: Map<String, Long>
-    + startRealtimeParsing(path: Path, onEvent: Consumer<CombatEvent>): void
-    + stop(): void
-}
-
-class LogPatterns {
-    <<static>>
-    + START_COMBAT: Pattern
-    + END_COMBAT: Pattern
-    + PLAYER_JOIN: Pattern
-    + CAST_SPELL: Pattern
-    + DAMAGE: Pattern
-    + KO: Pattern
-    + INSTANT_KO: Pattern
-    + ELEMENT_REGEX: String
-}
-
-WakfuLogParserV3 --> LogPatterns
-WakfuLogParserV3 --> CombatEvent
-WakfuLogParserV3 --> Fighter
-
-
+    %% ====== INTERACTIONS UI ======
+    G -->|Bouton Reset / AutoReset| E
+    G -->|Bouton Breakdown| H
 ```

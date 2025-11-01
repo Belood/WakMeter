@@ -1,21 +1,13 @@
 package com.wakfu.parser;
 
-import com.wakfu.data.IndirectAbilities;
-import com.wakfu.domain.abilities.Ability;
-import com.wakfu.domain.abilities.DamageSourceType;
-import com.wakfu.domain.abilities.Element;
 import com.wakfu.domain.actors.*;
 import com.wakfu.domain.event.*;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.function.Consumer;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * Lit le log Wakfu en temps réel et génère des événements structurés.
@@ -59,7 +51,8 @@ public class LogParser {
                     String line;
                     while ((line = raf.readLine()) != null) {
                         String utf8Line = new String(line.getBytes(StandardCharsets.ISO_8859_1), StandardCharsets.UTF_8);
-                        processor.processLine(utf8Line.trim(), onEvent);
+                        // Le LogProcessor gère l'EventProcessor en interne désormais
+                        processor.processLine(utf8Line.trim());
                     }
                     filePointer = raf.getFilePointer();
                 }

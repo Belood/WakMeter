@@ -11,17 +11,17 @@ import com.wakfu.domain.event.BattleEvent;
 import com.wakfu.domain.event.CombatEvent;
 import com.wakfu.domain.event.EventType;
 import com.wakfu.domain.event.LogEvent;
+import com.wakfu.service.EventProcessor;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class LogProcessor {
     private boolean inCombat = false;
-
+    private final EventProcessor eventProcessor;
     private final Map<String, Fighter> fighters = new HashMap<>();
     private final Map<String, Ability> lastAbilityByCaster = new HashMap<>();
     private final Map<String, Long> lastCastTime = new HashMap<>();
@@ -38,16 +38,21 @@ public class LogProcessor {
 
     private static final DateTimeFormatter TIME_FORMAT =
             DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+
+    public LogProcessor(EventProcessor eventProcessor) {
+        this.eventProcessor = eventProcessor;
+    }
+
+    // Nouvelle méthode pour exposer le traitement d'un LogEvent
+    public void process(LogEvent event) {
+        if (event == null) return;
+        eventProcessor.onEvent(event);
+    }
+
     // === Analyse de chaque ligne ===
-    public void processLine(String line, Consumer<LogEvent> onEvent) {
+    public void processLine(String line) {
         if (line.isEmpty()) return;
-        line = line
-                .replace("(Parade !)", "")
-                .replace("(Parade!)", "")
-                .replace("(Lumière)", "")
-                .replace("(Critiques)","")
-                .replaceAll("\\s+", " ")
-                .trim();
+        line = PatternExclusions.clean(line);
 
         long tsNow = extractLogMillis(line);
 
@@ -55,14 +60,15 @@ public class LogProcessor {
             inCombat = true;
             fighters.clear();
             lastAbilityByCaster.clear();
-            onEvent.accept(new BattleEvent(LocalDateTime.now(), BattleEvent.BattleState.START));
+            // utilise la chaîne: processLine -> process(LogEvent) -> EventProcessor
+            process(new BattleEvent(LocalDateTime.now(), BattleEvent.BattleState.START));
             System.out.println("[Parser] >>> Combat started <<<");
             return;
         }
 
         if (LogPatterns.END_COMBAT.matcher(line).find()) {
             inCombat = false;
-            onEvent.accept(new BattleEvent(LocalDateTime.now(), BattleEvent.BattleState.END));
+            process(new BattleEvent(LocalDateTime.now(), BattleEvent.BattleState.END));
             System.out.println("[Parser] <<< Combat ended >>>");
             return;
         }
@@ -87,7 +93,14 @@ public class LogProcessor {
             String casterName = mCast.group(1).trim();
             String spellName = mCast.group(2).trim();
 
-            detectTurnStart(casterName, onEvent);
+            // check for special-case mappings
+            String mapped = SpecialCase.specialSpell(spellName);
+            if (mapped != null) {
+                System.out.printf("[Parser] SpecialCase mapping: %s -> %s%n", spellName, mapped);
+                spellName = mapped;
+            }
+
+            detectTurnStart(casterName);
 
             Ability ability = new Ability(spellName, "Sort", Element.INCONNU, DamageSourceType.DIRECT);
             lastAbilityByCaster.put(casterName, ability);
@@ -99,20 +112,20 @@ public class LogProcessor {
         // --- Dégâts directs ---
         Matcher mDirect = LogPatterns.DAMAGE_DIRECT.matcher(line);
         if (mDirect.find()) {
-            handleDirectDamage(mDirect, onEvent, tsNow);
+            handleDirectDamage(mDirect, tsNow);
             return;
         }
 
         // --- Dégâts indirects ---
         Matcher mIndirect = LogPatterns.DAMAGE_INDIRECT.matcher(line);
         if (mIndirect.find()) {
-            handleIndirectDamage(mIndirect, onEvent, tsNow);
+            handleIndirectDamage(mIndirect, tsNow);
             return;
         }
     }
 
     // === Gestion des événements ===
-    private void handleDirectDamage(Matcher m, Consumer<LogEvent> onEvent, long tsNow) {
+    private void handleDirectDamage(Matcher m, long tsNow) {
         String targetName = m.group(1).trim();
         int value = parseIntSafe(m.group(2));
         Element element = Element.fromString(m.group(3).trim());
@@ -126,11 +139,11 @@ public class LogProcessor {
         );
         ability.setElement(element);
         CombatEvent event = new CombatEvent(LocalDateTime.now(), caster, target, ability, EventType.DAMAGE, value, element);
-        onEvent.accept(event);
+        process(event);
         System.out.printf("[Parser] DIRECT: %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
     }
 
-    private void handleIndirectDamage(Matcher m, Consumer<LogEvent> onEvent, long tsNow) {
+    private void handleIndirectDamage(Matcher m, long tsNow) {
         String targetName = m.group(1).trim();
         int value = parseIntSafe(m.group(2));
         String tail = m.group(3).trim();
@@ -155,6 +168,13 @@ public class LogProcessor {
         // ⚡ Vérification si ce sort est VRAIMENT indirect
         boolean isTrueIndirect = IndirectAbilities.isIndirect(effectName);
 
+        // Apply special-case mapping for effectName
+        String mapped = SpecialCase.specialSpell(effectName);
+        if (mapped != null) {
+            System.out.printf("[Parser] SpecialCase mapping (indirect): %s -> %s%n", effectName, mapped);
+            effectName = mapped;
+        }
+
         Fighter caster;
         if (isTrueIndirect) {
             // Dégât vraiment indirect → joueur "Indirect"
@@ -175,27 +195,26 @@ public class LogProcessor {
         CombatEvent event = new CombatEvent(LocalDateTime.now(), caster, target, ability,
                 EventType.DAMAGE, value, element);
 
-        onEvent.accept(event);
+        process(event);
     }
 
 
 
 
-
     // === Gestion du tour ===
-    private void detectTurnStart(String playerName, Consumer<LogEvent> onEvent) {
+    private void detectTurnStart(String playerName) {
         if (currentPlayerTurn == null || !currentPlayerTurn.equals(playerName)) {
             // --- Round Start ---
             if (playersThisRound.isEmpty()) {
                 firstPlayerThisRound = playerName;
-                onEvent.accept(new BattleEvent(LocalDateTime.now(),
+                process(new BattleEvent(LocalDateTime.now(),
                         BattleEvent.BattleState.ROUND_START, roundNumber));
                 System.out.println("[Round] >>> ROUND " + roundNumber + " START <<<");
             }
 
             // --- Fin du tour précédent ---
             if (currentPlayerTurn != null && !currentPlayerTurn.equals(playerName)) {
-                onEvent.accept(new BattleEvent(LocalDateTime.now(),
+                process(new BattleEvent(LocalDateTime.now(),
                         BattleEvent.BattleState.END_TURN, currentPlayerTurn));
                 System.out.println("[Turn] <<< " + currentPlayerTurn + " END TURN <<<");
             }
@@ -203,7 +222,7 @@ public class LogProcessor {
             // --- Nouveau tour ---
             currentPlayerTurn = playerName;
             playersThisRound.add(playerName);
-            onEvent.accept(new BattleEvent(LocalDateTime.now(),
+            process(new BattleEvent(LocalDateTime.now(),
                     BattleEvent.BattleState.START_TURN, playerName));
             System.out.println("[Turn] >>> " + playerName + " START TURN <<<");
 
@@ -211,7 +230,7 @@ public class LogProcessor {
             if (firstPlayerThisRound != null
                     && playerName.equals(firstPlayerThisRound)
                     && playersThisRound.size() > 1) {
-                onEvent.accept(new BattleEvent(LocalDateTime.now(),
+                process(new BattleEvent(LocalDateTime.now(),
                         BattleEvent.BattleState.ROUND_END, roundNumber));
                 System.out.println("[Round] <<< ROUND " + roundNumber + " END <<<");
 

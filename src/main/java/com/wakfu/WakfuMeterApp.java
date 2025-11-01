@@ -1,128 +1,130 @@
 package com.wakfu;
 
-import com.wakfu.domain.actors.Player;
-import com.wakfu.domain.event.*;
+import com.wakfu.config.UserSettings;
+import com.wakfu.i18n.MessageProvider;
 import com.wakfu.parser.LogParser;
+import com.wakfu.service.EventProcessor;
 import com.wakfu.parser.LogProcessor;
 import com.wakfu.service.DamageCalculator;
 import com.wakfu.ui.UIManager;
 import javafx.application.Application;
 import javafx.stage.Stage;
 
-import java.io.IOException;
-import java.io.PrintStream;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
-import java.util.Comparator;
-import java.util.List;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Optional;
 
-/**
- * Application principale WakfuMeter :
- * - Détecte automatiquement le dernier fichier de log Wakfu
- * - Parse les événements en temps réel
- * - Met à jour l'UI avec les dégâts des joueurs
- */
 public class WakfuMeterApp extends Application {
 
-    private LogParser parser;
-    private DamageCalculator calculator;
-    private UIManager uiManager;
-    private LogProcessor logProcessor;
-
-    // Répertoire des logs Wakfu
-    private static final Path LOG_DIR = Paths.get("C:\\Users\\alex_\\AppData\\Roaming\\zaap\\gamesLogs\\wakfu\\logs");
+    private LogParser logParser;
 
     @Override
     public void start(Stage primaryStage) {
-        calculator = new DamageCalculator();
-        uiManager = new UIManager(primaryStage, calculator);
-        logProcessor = new LogProcessor();
-        parser = new LogParser(logProcessor);
+        // === Initialisation des modules ===
+        DamageCalculator damageCalculator = new DamageCalculator();
+        EventProcessor eventProcessor = new EventProcessor();
+        LogProcessor logProcessor = new LogProcessor(eventProcessor);
+        UIManager uiManager = new UIManager(primaryStage, damageCalculator);
 
-        try {
-            Path logFile = findLatestLogFile(LOG_DIR);
-            if (logFile == null) {
-                uiManager.showError("Erreur", "Aucun fichier de log trouvé dans : " + LOG_DIR);
-                return;
+        // Status listener -> UI
+        eventProcessor.addStatusListener(uiManager::setAppStatus);
+
+        // History toggle listener -> EventProcessor + persistance
+        uiManager.setOnHistoryChanged(enabled -> {
+            eventProcessor.setHistoryEnabled(enabled);
+            UserSettings.saveHistoryEnabled(enabled);
+        });
+
+        // Restaurer le parametre historyEnabled
+        boolean historyEnabled = UserSettings.loadHistoryEnabled().orElse(false);
+        uiManager.setHistoryChecked(historyEnabled);
+        eventProcessor.setHistoryEnabled(historyEnabled);
+
+        // Callback pour démarrer le parser quand un dossier est choisi
+        uiManager.setOnLogFolderSelected(path -> {
+            try {
+                Path logFile = Paths.get(path).resolve("wakfu.log");
+                if (logParser != null) logParser.stop();
+                logParser = new LogParser(logProcessor);
+                logParser.startRealtimeParsing(logFile, eventProcessor::onEvent);
+                uiManager.showMessage("Wakfu Meter", "Lecture des logs: " + logFile);
+                uiManager.setAppStatus(MessageProvider.logsDetected());
+                uiManager.setAppStatus(MessageProvider.waitingCombat());
+            } catch (Exception e) {
+                uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
+                e.printStackTrace(System.err);
+                uiManager.setAppStatus("Inactif");
             }
+        });
 
-            uiManager.showMessage("Wakfu Meter", "Lecture en temps réel : " + logFile.getFileName());
-            parser.startRealtimeParsing(logFile, this::handleLogEvent);
+        // === Inscription aux notifications du modèle ===
+        eventProcessor.addModelListener(model -> {
+            // Refresh calculator state then UI
+            damageCalculator.refreshFromModel(model);
+            uiManager.refresh(model);
+        });
 
-        } catch (IOException e) {
-            uiManager.showError("Erreur", "Impossible d'accéder au dossier de logs : " + e.getMessage());
-        }
-    }
+        // L'auto-reset est géré via le hook onBattleStart ; ne pas réinitialiser à chaque update du modèle.
 
-    /**
-     * Trouve le fichier de log le plus récemment modifié dans le dossier donné.
-     */
-    private Path findLatestLogFile(Path directory) throws IOException {
-        if (!Files.exists(directory)) return null;
-
-        try (var files = Files.list(directory)) {
-            Optional<Path> latest = files
-                    .filter(f -> f.getFileName().toString().toLowerCase().contains("log"))
-                    .filter(Files::isRegularFile)
-                    .max(Comparator.comparingLong(this::getLastModifiedTimeSafe));
-
-            return latest.orElse(null);
-        }
-    }
-
-    private long getLastModifiedTimeSafe(Path file) {
-        try {
-            return Files.getLastModifiedTime(file).toMillis();
-        } catch (IOException e) {
-            return 0L;
-        }
-    }
-
-    private void handleLogEvent(LogEvent event) {
-        if (event instanceof BattleEvent battle) {
-            handleBattleEvent(battle);
-        } else if (event instanceof CombatEvent combat) {
-            handleCombatEvent(combat);
-        }
-    }
-
-    private void handleBattleEvent(BattleEvent battleEvent) {
-        switch (battleEvent.getState()) {
-            case START -> {
-                // Début du combat
-                uiManager.showMessage("Combat", "Début du combat détecté !");
-                uiManager.handleCombatStart(); // ✅ Auto-reset si activé
+        // Si un dossier de logs était sauvegardé, démarrer automatiquement
+        Optional<String> saved = UserSettings.loadLogFolder();
+        if (saved.isPresent()) {
+            uiManager.setOnLogFolderSelected(null); // éviter double-callback pendant démarrage
+            // démarrage direct
+            try {
+                Path logFile = Paths.get(saved.get()).resolve("wakfu.log");
+                logParser = new LogParser(logProcessor);
+                logParser.startRealtimeParsing(logFile, eventProcessor::onEvent);
+                uiManager.showMessage("Wakfu Meter", "Lecture des logs: " + logFile);
+                uiManager.setAppStatus(MessageProvider.logsDetected());
+                uiManager.setAppStatus(MessageProvider.waitingCombat());
+            } catch (Exception e) {
+                uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
+                e.printStackTrace(System.err);
+                uiManager.setAppStatus("Inactif");
             }
-            case END -> {
-                uiManager.showMessage("Combat", "Combat terminé !");
-            }
+            uiManager.setOnLogFolderSelected(path -> {
+                try {
+                    Path logFile = Paths.get(path).resolve("wakfu.log");
+                    if (logParser != null) logParser.stop();
+                    logParser = new LogParser(logProcessor);
+                    logParser.startRealtimeParsing(logFile, eventProcessor::onEvent);
+                    uiManager.showMessage("Wakfu Meter", "Lecture des logs: " + logFile);
+                    uiManager.setAppStatus(MessageProvider.logsDetected());
+                    uiManager.setAppStatus(MessageProvider.waitingCombat());
+                } catch (Exception e) {
+                    uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
+                    e.printStackTrace(System.err);
+                    uiManager.setAppStatus("Inactif");
+                }
+            });
         }
-    }
 
-    private void handleCombatEvent(CombatEvent event) {
-        calculator.updateWithEvent(event);
+        uiManager.showMessage("Wakfu Meter", "Prêt");
 
-        List<Player> players = calculator.getPlayers();
-        int totalDamage = calculator.calculateTotalDamage(players);
-
-        uiManager.displayPlayerStats(players, totalDamage);
-//        uiManager.displayElementBreakdown(calculator.getElementalBreakdown());
+        uiManager.setOnAutoResetChanged(enabled -> {
+            if (enabled) {
+                // When enabled, only register the hook so that at the START of each battle
+                // the damageCalculator and UI will be reset. Do NOT reset immediately when
+                // the checkbox is toggled.
+                eventProcessor.setOnBattleStart(() -> {
+                    try {
+                        damageCalculator.reset();
+                        uiManager.resetUI();
+                    } catch (Exception ignored) {}
+                });
+            } else {
+                eventProcessor.setOnBattleStart(null);
+            }
+        });
     }
 
     @Override
-    public void stop() throws Exception {
-        if (parser != null) parser.stop();
-        super.stop();
+    public void stop() {
+        if (logParser != null) logParser.stop();
     }
 
     public static void main(String[] args) {
-        try {
-            System.setOut(new PrintStream(System.out, true, StandardCharsets.UTF_8));
-            System.setErr(new PrintStream(System.err, true, StandardCharsets.UTF_8));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
         launch(args);
     }
 }
