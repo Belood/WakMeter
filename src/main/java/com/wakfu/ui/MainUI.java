@@ -87,7 +87,7 @@ public class MainUI {
         }
         primaryStage.setScene(scene);
 
-        var iconStream = getClass().getResourceAsStream("/assets/ico.png");
+        var iconStream = getClass().getResourceAsStream("/assets/icon.ico");
         if (iconStream != null) {
             primaryStage.getIcons().add(new Image(iconStream));
         }
