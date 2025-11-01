@@ -13,7 +13,9 @@
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <javafx.version>21</javafx.version>
-        <!-- Ajustez ce chemin localement si nécessaire (chemin vers le dossier lib du SDK JavaFX) -->
+        <!-- IMPORTANT: This path is only needed for the 'jpackage' profile on Windows.
+             Update this to match your local JavaFX SDK installation before running: mvn clean package -Pjpackage
+             Example: D:\Java\javafx-sdk-21\lib or C:\Program Files\Java\javafx-sdk-21\lib -->
         <javafx.sdk.path>D:\Java\javafx-sdk-21\lib</javafx.sdk.path>
     </properties>
 
@@ -193,7 +195,7 @@
                                     <type>exe</type>
                                     <input>${project.build.directory}</input>
                                     <dest>${project.build.directory}/installer</dest>
-                                    <mainJar>${project.build.finalName}-shaded.jar</mainJar>
+                                    <mainJar>${project.build.finalName}.jar</mainJar>
                                     <mainClass>com.wakfu.WakfuMeterApp</mainClass>
                                     <runtimeImage>${project.build.directory}/custom-runtime</runtimeImage>
                                     <icon>src/main/resources/assets/icon.ico</icon>

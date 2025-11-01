@@ -63,11 +63,24 @@ java -jar target/WakMeter-1.0.0-SNAPSHOT.jar
 
 The project also includes a `jpackage` Maven profile for creating a native Windows installer on Windows machines. This approach creates a fully self-contained application with its own JRE.
 
-**Note:** This can only be run on a Windows machine with Java 21+ installed.
+**Requirements:**
+- Must be run on a Windows machine
+- Java 21+ installed
+- JavaFX SDK 21 installed
+- Update the `javafx.sdk.path` property in `pom.xml` to match your local JavaFX SDK installation
 
-```bash
-mvn clean package -Pjpackage
-```
+**Steps:**
+
+1. Download JavaFX SDK 21 from [https://gluonhq.com/products/javafx/](https://gluonhq.com/products/javafx/)
+2. Extract it to a location on your machine
+3. Update the `javafx.sdk.path` property in `pom.xml`:
+   ```xml
+   <javafx.sdk.path>C:\Path\To\javafx-sdk-21\lib</javafx.sdk.path>
+   ```
+4. Run the build:
+   ```bash
+   mvn clean package -Pjpackage
+   ```
 
 This will create:
 - `target/installer/WakMeter-1.0.0-SNAPSHOT.exe` - A Windows installer
@@ -76,6 +89,7 @@ The jpackage installer includes:
 - Custom Java runtime (via jlink)
 - No external Java installation required
 - Native Windows installer
+- Fully self-contained application
 
 ## Skipping Tests
 
