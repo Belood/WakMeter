@@ -1,7 +1,7 @@
 package com.wakfu.ui;
 
-import com.wakfu.model.FightModel;
-import com.wakfu.model.RoundModel;
+import com.wakfu.domain.model.FightModel;
+import com.wakfu.domain.model.RoundModel;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;

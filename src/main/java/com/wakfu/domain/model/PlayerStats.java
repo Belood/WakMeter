@@ -1,4 +1,4 @@
-package com.wakfu.model;
+package com.wakfu.domain.model;
 
 import com.wakfu.domain.actors.Player;
 import com.wakfu.domain.abilities.Element;

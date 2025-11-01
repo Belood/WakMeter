@@ -4,9 +4,9 @@ import com.wakfu.domain.actors.Player;
 import com.wakfu.domain.event.BattleEvent;
 import com.wakfu.domain.event.CombatEvent;
 import com.wakfu.domain.event.LogEvent;
-import com.wakfu.i18n.MessageProvider;
-import com.wakfu.model.FightModel;
-import com.wakfu.model.PlayerStats;
+import com.wakfu.data.MessageProvider;
+import com.wakfu.domain.model.FightModel;
+import com.wakfu.domain.model.PlayerStats;
 import com.wakfu.storage.FightHistoryManager;
 
 import java.util.function.Consumer;

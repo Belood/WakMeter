@@ -1,4 +1,4 @@
-package com.wakfu.i18n;
+package com.wakfu.data;
 
 import java.util.Locale;
 import java.util.ResourceBundle;

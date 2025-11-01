@@ -1,8 +1,8 @@
 package com.wakfu.service;
 
-import com.wakfu.model.FightModel;
-import com.wakfu.model.PlayerStats;
-import com.wakfu.model.SpellStats;
+import com.wakfu.domain.model.FightModel;
+import com.wakfu.domain.model.PlayerStats;
+import com.wakfu.domain.model.SpellStats;
 import com.wakfu.domain.abilities.Element;
 
 import java.util.*;
@@ -30,7 +30,6 @@ public class DamageCalculator {
     /**
      * Retourne les joueurs triés par dégâts infligés (du plus haut au plus bas).
      */
-    @SuppressWarnings("unused")
     public List<PlayerStats> getPlayersByDamage(FightModel fight) {
         if (fight == null) return List.of();
         return fight.getStatsByPlayer().values().stream()
@@ -41,7 +40,6 @@ public class DamageCalculator {
     /**
      * Calcule le breakdown global des dégâts par élément.
      */
-    @SuppressWarnings("unused")
     public Map<Element, Integer> getDamageByElement(FightModel fight) {
         Map<Element, Integer> result = new EnumMap<>(Element.class);
 
@@ -61,7 +59,6 @@ public class DamageCalculator {
     /**
      * Récupère les dégâts totaux par sort pour un joueur donné.
      */
-    @SuppressWarnings("unused")
     public Map<String, Integer> getDamageBySpell(PlayerStats playerStats) {
         if (playerStats == null) return Map.of();
 
@@ -77,7 +74,6 @@ public class DamageCalculator {
     /**
      * Retourne le pourcentage des dégâts d’un joueur par rapport au total global.
      */
-    @SuppressWarnings("unused")
     public double getDamagePercent(PlayerStats player, FightModel fight) {
         int total = getTotalDamage(fight);
         return total > 0 ? (double) player.getTotalDamage() / total : 0.0;
@@ -86,7 +82,6 @@ public class DamageCalculator {
     /**
      * Calcule le DPS moyen d’un joueur (simple approximation).
      */
-    @SuppressWarnings("unused")
     public double getPlayerDps(PlayerStats player, FightModel fight) {
         if (fight == null || player == null || fight.getRounds().isEmpty()) return 0.0;
         int totalDamage = player.getTotalDamage();
@@ -101,12 +96,11 @@ public class DamageCalculator {
         System.out.println("[DamageCalculator] Models refreshed");
     }
 
-    @SuppressWarnings("unused")
+
     public FightModel getLastModel() {
         return lastModel;
     }
 
-    @SuppressWarnings("unused")
     public void reset() {
         lastModel = null;
     }

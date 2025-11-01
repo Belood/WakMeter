@@ -1,4 +1,4 @@
-package com.wakfu.data;
+package com.wakfu.domain.abilities;
 
 import java.util.Set;
 

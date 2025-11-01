@@ -1,4 +1,4 @@
-package com.wakfu.model;
+package com.wakfu.domain.model;
 
 import java.time.LocalDateTime;
 import java.util.LinkedHashMap;

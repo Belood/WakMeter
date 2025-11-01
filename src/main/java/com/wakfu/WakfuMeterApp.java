@@ -1,7 +1,7 @@
 package com.wakfu;
 
-import com.wakfu.config.UserSettings;
-import com.wakfu.i18n.MessageProvider;
+import com.wakfu.data.UserSettings;
+import com.wakfu.data.MessageProvider;
 import com.wakfu.parser.LogParser;
 import com.wakfu.service.EventProcessor;
 import com.wakfu.parser.LogProcessor;
@@ -52,7 +52,7 @@ public class WakfuMeterApp extends Application {
                 uiManager.setAppStatus(MessageProvider.waitingCombat());
             } catch (Exception e) {
                 uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
-                e.printStackTrace(System.err);
+                System.out.printf(e.getMessage());
                 uiManager.setAppStatus("Inactif");
             }
         });
@@ -80,7 +80,7 @@ public class WakfuMeterApp extends Application {
                 uiManager.setAppStatus(MessageProvider.waitingCombat());
             } catch (Exception e) {
                 uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
-                e.printStackTrace(System.err);
+                System.out.printf(e.getMessage());
                 uiManager.setAppStatus("Inactif");
             }
             uiManager.setOnLogFolderSelected(path -> {
@@ -94,7 +94,7 @@ public class WakfuMeterApp extends Application {
                     uiManager.setAppStatus(MessageProvider.waitingCombat());
                 } catch (Exception e) {
                     uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
-                    e.printStackTrace(System.err);
+                    System.out.printf(e.getMessage());
                     uiManager.setAppStatus("Inactif");
                 }
             });

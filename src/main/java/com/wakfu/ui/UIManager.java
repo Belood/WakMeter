@@ -1,16 +1,13 @@
 package com.wakfu.ui;
 
-import com.wakfu.config.UserSettings;
+import com.wakfu.data.UserSettings;
 import com.wakfu.domain.actors.Fighter;
+import com.wakfu.domain.model.PlayerStats;
 import com.wakfu.service.DamageCalculator;
-import com.wakfu.model.FightModel;
+import com.wakfu.domain.model.FightModel;
 import com.wakfu.storage.FightHistoryManager;
 import javafx.application.Platform;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
 import javafx.scene.control.*;
-import javafx.scene.image.Image;
 import javafx.scene.layout.*;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
@@ -22,54 +19,61 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * Interface principale affichant les dégâts totaux des joueurs.
+ * UIManager acts as the MVC Controller.
+ * It manages:
+ * - User interactions (button clicks, selections)
+ * - Communication with DamageCalculator (model)
+ * - Updates to MainUI (view)
+ * - Display logic and state management
  */
 public class UIManager {
 
     private final Stage primaryStage;
-    private final VBox mainContainer;
+    private final MainUI mainUI;
     private final Label statusLabel;    // affiche le dossier de logs / messages
-    private final Label appStatusLabel; // nouveau : affiche l'état de l'application juste sous le header
-    private final GridPane playerGrid;
-    // External breakdown stage (docked to the right of main window)
-    private Stage breakdownStage = null;
+    private final VBox playersContainer;
+
     // Turn breakdown UI (per-round details)
     private TurnBreakdownUI turnBreakdownUI = null;
     // Keep last model to feed TurnBreakdownUI
-    private com.wakfu.model.FightModel lastModel = null;
+    private FightModel lastModel = null;
 
-    // === Nouveaux éléments ===
-    private final Button refreshButton; // remplace resetButton
+    // Track the currently displayed breakdown panel
+    private PlayerStats currentSelectedPlayer = null;
+
+    // === Controls Elements ===
+    private final Button refreshButton;
     private final CheckBox autoResetCheck;
     private final Button selectLogsFolderButton;
     private final DamageCalculator damageCalculator;
-
+    private final Button turnDetailsBtn;
     // Historique
     private final CheckBox historyCheck;
     private final Button clearHistoryButton;
     // Per-player colors for the session
     private final Map<String, javafx.scene.paint.Color> playerColors = new ConcurrentHashMap<>();
 
-    // Callback appelée quand l'utilisateur choisit un dossier
+    // Callbacks
     private Consumer<String> onLogFolderSelected;
-    // Callback when history checkbox changes
     private Consumer<Boolean> onHistoryChanged;
-    // Callback when auto-reset checkbox changes
     private Consumer<Boolean> onAutoResetChanged;
 
     public UIManager(Stage primaryStage, DamageCalculator damageCalculator) {
         this.primaryStage = primaryStage;
         this.damageCalculator = damageCalculator;
-        this.mainContainer = new VBox(10);
+
+        // Initialize MainUI (the view)
+        this.mainUI = new MainUI(primaryStage);
+        this.playersContainer = mainUI.getCenterContainer();
+
         this.statusLabel = new Label("En attente de combat...");
-        this.appStatusLabel = new Label("App Status: \"Actif\"");
-        this.playerGrid = new GridPane();
 
         this.refreshButton = new Button("🔄");
         this.autoResetCheck = new CheckBox("Auto-reset");
         this.selectLogsFolderButton = new Button("📁");
         this.historyCheck = new CheckBox("Historique");
         this.clearHistoryButton = new Button("✖");
+        this.turnDetailsBtn = new Button("\uD83D\uDCCA");
 
         setupUI();
     }
@@ -89,19 +93,35 @@ public class UIManager {
         this.onAutoResetChanged = callback;
     }
 
-    private void setupUI() {
-        // --- HEADER ---
-        HBox header = new HBox(8);
-        header.setAlignment(Pos.CENTER_LEFT);
-        header.setPadding(new Insets(10));
+    @SuppressWarnings("unused")
+    public boolean isHistoryEnabled() { return historyCheck.isSelected(); }
 
+    public void setHistoryChecked(boolean value) { historyCheck.setSelected(value); }
+
+    private void setupUI() {
+        // Setup header buttons with callbacks
+        setupHeaderControls();
+
+        // Add header controls to MainUI
+        mainUI.addAllToHeader(List.of(
+            selectLogsFolderButton, refreshButton, autoResetCheck, turnDetailsBtn,
+            statusLabel, historyCheck, clearHistoryButton
+        ));
+
+        // Si un dossier est déjà configuré, l'afficher
+        UserSettings.loadLogFolder().ifPresent(p -> statusLabel.setText("Logs folder: " + p));
+    }
+
+    /**
+     * Initializes all header control buttons and their event handlers.
+     */
+    private void setupHeaderControls() {
         // Folder select button (icône)
         selectLogsFolderButton.setTooltip(new Tooltip("Select logs folder"));
         selectLogsFolderButton.setOnAction(e -> {
             System.identityHashCode(e);
             DirectoryChooser dc = new DirectoryChooser();
             dc.setTitle("Select Wakfu logs folder");
-            // essayer charger le dernier dossier connu
             UserSettings.loadLogFolder().ifPresent(p -> {
                 File f = new File(p);
                 if (f.exists() && f.isDirectory()) dc.setInitialDirectory(f);
@@ -109,7 +129,6 @@ public class UIManager {
             File chosen = dc.showDialog(primaryStage);
             if (chosen != null) {
                 String path = chosen.getAbsolutePath();
-                // sauvegarde
                 UserSettings.saveLogFolder(path);
                 statusLabel.setText("Logs folder: " + path);
                 if (onLogFolderSelected != null) onLogFolderSelected.accept(path);
@@ -123,16 +142,13 @@ public class UIManager {
         refreshButton.setMinWidth(36);
 
         autoResetCheck.selectedProperty().addListener((obs, oldVal, newVal) -> {
-            // reference unused parameters to avoid static analysis warnings
             System.identityHashCode(obs); System.identityHashCode(oldVal);
             if (onAutoResetChanged != null) {
                 try { onAutoResetChanged.accept(newVal); } catch (Exception ignored) {}
             }
         });
 
-
-
-        // Historique checkbox + clear button
+        // Clear history button
         clearHistoryButton.setTooltip(new Tooltip("Clear history (fight_history.json)"));
         clearHistoryButton.setOnAction(e -> {
             System.identityHashCode(e);
@@ -151,73 +167,23 @@ public class UIManager {
             }
         });
 
-        // Button: Détails Par tour (icon U+1F522)
-        Button turnDetailsBtn = new Button("\uD83D\uDCCA");
+        // Turn details button
         turnDetailsBtn.setTooltip(new Tooltip("Détails Par tour"));
         turnDetailsBtn.setOnAction(e -> {
             System.identityHashCode(e);
-            // open or update TurnBreakdownUI
             if (turnBreakdownUI == null) turnBreakdownUI = new TurnBreakdownUI(primaryStage);
             turnBreakdownUI.show();
             if (lastModel != null) turnBreakdownUI.update(lastModel);
         });
         turnDetailsBtn.setMinWidth(36);
-
-        header.getChildren().addAll(selectLogsFolderButton, refreshButton, autoResetCheck, historyCheck, clearHistoryButton, statusLabel, turnDetailsBtn);
-
-        // --- Conteneur principal ---
-        mainContainer.setPadding(new Insets(10));
-        // Layout central: players list (scrollable)
-        HBox center = new HBox(10);
-        center.setAlignment(Pos.TOP_LEFT);
-
-        ScrollPane playersScroll = new ScrollPane(playerGrid);
-        playersScroll.setFitToWidth(true);
-        playersScroll.setBackground(Background.EMPTY);
-        playersScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
-        playersScroll.setPrefViewportHeight(400);
-
-        center.getChildren().addAll(playersScroll);
-
-        // Ajout du header, de l'appStatusLabel, puis du centre (players + breakdown)
-        mainContainer.getChildren().addAll(header, appStatusLabel, center);
-
-        Scene scene = new Scene(mainContainer, 700, 450);
-        // Applique le thème sombre si disponible
-        var css = getClass().getResource("/dark-theme.css");
-        if (css != null) {
-            scene.getStylesheets().add(css.toExternalForm());
-        } else {
-            System.err.println("[UIManager] dark-theme.css introuvable dans les resources");
-        }
-        primaryStage.setScene(scene);
-        var iconStream = getClass().getResourceAsStream("/assets/ico.png");
-        if (iconStream != null) {
-            primaryStage.getIcons().add(new Image(iconStream));
-        } else {
-            System.err.println("[UIManager] assets/ico.png introuvable dans les resources");
-        }
-        primaryStage.setTitle("WakMeter");
-        primaryStage.show();
-        // increase minimum size for the main UI
-        primaryStage.setMinWidth(920);
-        primaryStage.setMinHeight(520);
-
-        // Si un dossier est déjà configuré, l'afficher
-        UserSettings.loadLogFolder().ifPresent(p -> statusLabel.setText("Logs folder: " + p));
     }
-
-    @SuppressWarnings("unused")
-    public boolean isHistoryEnabled() { return historyCheck.isSelected(); }
-
-    public void setHistoryChecked(boolean value) { historyCheck.setSelected(value); }
 
     /**
      * Met à jour le label d'état de l'application (affiché sous le header).
      */
     public void setAppStatus(String message) {
-        String text = "App Status: \"" + (message == null ? "" : message) + "\"";
-        Platform.runLater(() -> appStatusLabel.setText(text));
+        String text = (message == null ? "" : message);
+        Platform.runLater(() -> mainUI.setAppStatus(text));
     }
 
     /**
@@ -232,14 +198,12 @@ public class UIManager {
      */
     private void resetData() {
         Platform.runLater(() -> {
-            playerGrid.getChildren().clear();
+            playersContainer.getChildren().clear();
             statusLabel.setText("En attente de combat...");
-            setAppStatus("Inactif");
-            // close external breakdown window if opened
-            if (breakdownStage != null) {
-                try { breakdownStage.close(); } catch (Exception ignored) {}
-                breakdownStage = null;
-            }
+            setAppStatus("En attente de combat...");
+            // Clear breakdown pane
+            mainUI.setBreakdownPanel(null);
+            currentSelectedPlayer = null;
          });
      }
 
@@ -249,9 +213,9 @@ public class UIManager {
     /**
      * Rafraîchit l'affichage de la liste des joueurs (ignore les ennemis).
      */
-    public void displayPlayerStats(List<com.wakfu.model.PlayerStats> statsList, int totalDamage) {
+    public void displayPlayerStats(List<PlayerStats> statsList, int totalDamage) {
         Platform.runLater(() -> {
-            playerGrid.getChildren().clear();
+            playersContainer.getChildren().clear();
 
             java.util.concurrent.atomic.AtomicInteger row = new java.util.concurrent.atomic.AtomicInteger(0);
             // Sort players by damage descending
@@ -271,11 +235,12 @@ public class UIManager {
                         return javafx.scene.paint.Color.hsb(hue, 0.65, 0.75);
                     });
 
-                    // pass a callback so breakdown opens/updates an external panel docked to the right
-                    PlayerUI playerUI = new PlayerUI(ps, pct, c, this::showOrUpdateBreakdown);
-                     HBox rowBox = playerUI.render();
-
-                     playerGrid.add(rowBox, 0, row.getAndIncrement());
+                    // pass a callback so breakdown opens/updates in the right pane
+                    PlayerUI playerUI = new PlayerUI(ps, pct, c, this::showBreakdownInRightPane);
+                    HBox rowBox = playerUI.render();
+                    HBox.setHgrow(rowBox, Priority.ALWAYS);
+                    playersContainer.getChildren().add(rowBox);
+                    row.getAndIncrement();
                  }
              });
           });
@@ -292,6 +257,23 @@ public class UIManager {
         // store last model for external UIs
         this.lastModel = model;
         displayPlayerStats(statsList, totalDamage);
+
+        // Auto-refresh the breakdown pane if a player is currently selected
+        if (currentSelectedPlayer != null) {
+            // Find the updated PlayerStats for the selected player in the new model
+            var updatedStats = statsList.stream()
+                    .filter(ps -> ps.getPlayer().getName().equals(currentSelectedPlayer.getPlayer().getName()))
+                    .findFirst();
+
+            if (updatedStats.isPresent()) {
+                currentSelectedPlayer = updatedStats.get();
+                showBreakdownInRightPane(currentSelectedPlayer);
+            } else {
+                // Player no longer in model, clear the breakdown
+                mainUI.setBreakdownPanel(null);
+                currentSelectedPlayer = null;
+            }
+        }
     }
 
     /**
@@ -302,79 +284,17 @@ public class UIManager {
     }
 
     /**
-     * Show or update the external breakdown Stage docked to the right of the primary stage.
+     * Shows or updates the breakdown panel in the right pane (MainUI).
+     * This replaces the old external Stage with an integrated right pane.
      */
-    private void showOrUpdateBreakdown(com.wakfu.model.PlayerStats stats) {
+    private void showBreakdownInRightPane(PlayerStats stats) {
          Platform.runLater(() -> {
              try {
-                Pane panel = DamageBreakdownUI.buildPanel(stats);
-
-                if (breakdownStage == null) {
-                    // create a BorderPane wrapper so we can add a top bar with a close button
-                    BorderPane wrapper = new BorderPane();
-                    wrapper.setCenter(panel);
-
-                    // top bar with close button aligned to right
-                    HBox topBar = new HBox();
-                    topBar.setPadding(new Insets(6, 6, 6, 6));
-                    topBar.setAlignment(Pos.CENTER_RIGHT);
-                    Button closeBtn = new Button("✖");
-                    closeBtn.setTooltip(new Tooltip("Fermer"));
-                    closeBtn.setOnAction(ev -> {
-                        // reference the event to avoid unused-parameter warnings (no functional impact)
-                        System.identityHashCode(ev);
-                        try { if (breakdownStage != null) breakdownStage.close(); } catch (Exception ignored) {}
-                        breakdownStage = null;
-                    });
-                    closeBtn.setMinWidth(36);
-                    topBar.getChildren().add(closeBtn);
-                    wrapper.setTop(topBar);
-
-                    breakdownStage = new Stage();
-                    Scene s = new Scene(wrapper, 360.0, primaryStage.getHeight());
-                    // apply theme
-                    var css = getClass().getResource("/dark-theme.css");
-                    if (css != null) s.getStylesheets().add(css.toExternalForm());
-                    breakdownStage.setScene(s);
-                    breakdownStage.setTitle("Breakdown - " + stats.getPlayer().getName());
-                    breakdownStage.setResizable(true);
-                    // position next to primary stage
-                    breakdownStage.setX(primaryStage.getX() + primaryStage.getWidth());
-                    breakdownStage.setY(primaryStage.getY());
-                    breakdownStage.setHeight(primaryStage.getHeight());
-                    breakdownStage.setOnCloseRequest(ev -> { System.identityHashCode(ev); breakdownStage = null; });
-
-                    // reposition when main stage moves/resizes
-                    primaryStage.xProperty().addListener((o,ov,nv) -> {
-                        System.identityHashCode(o); System.identityHashCode(ov); System.identityHashCode(nv);
-                        if (breakdownStage != null) breakdownStage.setX(primaryStage.getX() + primaryStage.getWidth());
-                    });
-                    primaryStage.yProperty().addListener((o,ov,nv) -> {
-                        System.identityHashCode(o); System.identityHashCode(ov); System.identityHashCode(nv);
-                        if (breakdownStage != null) breakdownStage.setY(primaryStage.getY());
-                    });
-                    primaryStage.widthProperty().addListener((o,ov,nv) -> {
-                        System.identityHashCode(o); System.identityHashCode(ov); System.identityHashCode(nv);
-                        if (breakdownStage != null) breakdownStage.setX(primaryStage.getX() + primaryStage.getWidth());
-                    });
-                    primaryStage.heightProperty().addListener((o,ov,nv) -> {
-                        System.identityHashCode(o); System.identityHashCode(ov); System.identityHashCode(nv);
-                        if (breakdownStage != null) breakdownStage.setHeight(primaryStage.getHeight());
-                    });
-
-                    breakdownStage.show();
-                } else {
-                    // update existing: keep the same wrapper, replace center
-                    var root = breakdownStage.getScene().getRoot();
-                    if (root instanceof BorderPane) {
-                        ((BorderPane) root).setCenter(panel);
-                    } else {
-                        breakdownStage.getScene().setRoot(panel);
-                    }
-                    breakdownStage.setTitle("Breakdown - " + stats.getPlayer().getName());
-                }
+                // Remember the selected player for auto-refresh on model updates
+                currentSelectedPlayer = stats;
+                Pane panel = BreakdownPane.buildPanel(stats);
+                mainUI.setBreakdownPanel(panel);
              } catch (Exception e) {
-                 // fallback: show in a dialog
                  showError("Erreur", "Impossible d'afficher le breakdown: " + e.getMessage());
              }
          });

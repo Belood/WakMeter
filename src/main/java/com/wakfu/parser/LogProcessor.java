@@ -1,6 +1,6 @@
 package com.wakfu.parser;
 
-import com.wakfu.data.IndirectAbilities;
+import com.wakfu.domain.abilities.IndirectAbilities;
 import com.wakfu.domain.abilities.Ability;
 import com.wakfu.domain.abilities.DamageSourceType;
 import com.wakfu.domain.abilities.Element;

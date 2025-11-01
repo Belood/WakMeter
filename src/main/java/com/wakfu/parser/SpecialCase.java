@@ -32,7 +32,6 @@ public class SpecialCase {
      */
     public static String specialSpell(String spellName) {
         if (spellName == null) return null;
-        String key = spellName.trim().toLowerCase(Locale.ROOT);
-        return SPECIAL_SPELLS.getOrDefault(key, null);
+        return SPECIAL_SPELLS.getOrDefault(spellName, null);
     }
 }

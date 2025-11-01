@@ -1,4 +1,4 @@
-package com.wakfu.config;
+package com.wakfu.data;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
