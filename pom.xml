@@ -106,10 +106,8 @@
                             <headerType>gui</headerType>
                             <outfile>${project.build.directory}/WakMeter.exe</outfile>
                             <jar>${project.build.directory}/${project.build.finalName}.jar</jar>
+                            <mainClass>com.wakfu.WakfuMeterApp</mainClass>
                             <errTitle>WakMeter Error</errTitle>
-                            <classPath>
-                                <mainClass>com.wakfu.WakfuMeterApp</mainClass>
-                            </classPath>
                             <icon>src/main/resources/assets/icon.ico</icon>
                             <jre>
                                 <minVersion>21</minVersion>
