@@ -16,8 +16,24 @@ public final class PatternExclusions {
             Pattern.compile("\\(Lumière\\)"),
             Pattern.compile("\\(Critiques\\)"),
             Pattern.compile("\\(Simple\\)"),
-            Pattern.compile("\\(Double\\)")
+            Pattern.compile("\\(Double\\)"),
+            Pattern.compile("\\(Veines de Wakfu\\)")
     );
+
+    private static final List<String> IGNORE = List.of(
+            "Lien vital", "Bastion"
+    );
+
+    /**
+     * Vérifie si la ligne doit être complètement ignorée.
+     */
+    public static boolean shouldIgnore(String line) {
+        if (line == null || line.isEmpty()) return true;
+        for (String keyword : IGNORE) {
+            if (line.contains(keyword)) return true;
+        }
+        return false;
+    }
 
     /**
      * Nettoie une ligne de log en retirant les tokens connus et en normalisant les espaces.

@@ -56,6 +56,10 @@ public class FightModel {
         return rounds;
     }
 
+    public RoundModel getCurrentRoundModel() {
+        return rounds.isEmpty() ? null : rounds.get(rounds.size() - 1);
+    }
+
     public void reset() {
         statsByPlayer.clear();
         rounds.clear();

@@ -14,5 +14,10 @@ public class MessageProvider {
     public static String logsDetected() { return get("logs.detected"); }
     public static String waitingCombat() { return get("waiting.combat"); }
     public static String combatInProgress() { return get("combat.inprogress"); }
+    public static String noLogFile() { return get("no.log.file"); }
+    public static String appReady() { return get("app.ready"); }
+    public static String logFolderSelected() { return get("log.folder.selected"); }
+    public static String historyCleared() { return get("history.cleared"); }
+    public static String historyClearError() { return get("history.clear.error"); }
 }
 

@@ -1,19 +1,19 @@
 package com.wakfu.domain.model;
 
+import com.wakfu.domain.actors.Player;
+
 import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Représente un round (tour complet de tous les joueurs).
- */
 public class RoundModel {
 
     private final int roundNumber;
     private final LocalDateTime startTime;
     private LocalDateTime endTime;
 
-    private final Map<String, Integer> damageByPlayer = new LinkedHashMap<>();
+    private final Map<String, PlayerStats> playerStatsByRound = new LinkedHashMap<>();
 
     public RoundModel(int roundNumber) {
         this.roundNumber = roundNumber;
@@ -28,15 +28,15 @@ public class RoundModel {
         return roundNumber;
     }
 
-    public void addDamage(String playerName, int value) {
-        damageByPlayer.merge(playerName, value, Integer::sum);
+    public PlayerStats getOrCreatePlayerStats(String playerName) {
+        return playerStatsByRound.computeIfAbsent(playerName,
+            name -> new PlayerStats(new Player(name, -1, Player.FighterType.PLAYER)));
     }
 
-    public Map<String, Integer> getDamageByPlayer() {
-        return damageByPlayer;
+    public Map<String, PlayerStats> getPlayerStatsByRound() {
+        return Collections.unmodifiableMap(playerStatsByRound);
     }
 
-    // Getters pour sérialisation
     public LocalDateTime getStartTime() {
         return startTime;
     }

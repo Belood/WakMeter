@@ -206,7 +206,10 @@ public class BreakdownPane {
                     dmgLabel.setPrefWidth(50);
                     String dmgPerPaText = "-";
                     Integer cost = SpellCostProvider.getCostFor(playerClassKey, spell);
-                    if (cost != null && cost > 0) dmgPerPaText = String.format("%1$.2f", (double) dmg / cost);
+                    int castCount = sp.getCastCount();
+                    if (cost != null && cost > 0 && castCount > 0) {
+                        dmgPerPaText = String.format("%1$.2f", (double) dmg / (cost * castCount));
+                    }
                     Label dmgPerPaLabel = new Label(dmgPerPaText);
                     dmgPerPaLabel.setPrefWidth(70);
                     Label pctLabel = new Label(String.format("%.1f%%", pct * 100));

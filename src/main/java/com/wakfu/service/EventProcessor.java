@@ -123,19 +123,29 @@ public class EventProcessor {
         if (event.getCaster() instanceof Player) {
             Player caster = (Player) event.getCaster();
 
-            // Récupère ou crée le PlayerStats correspondant
+            // Récupère ou crée le PlayerStats correspondant au niveau du combat
             PlayerStats stats = currentFight.getStatsByPlayer()
                     .computeIfAbsent(caster.getName(), name -> new PlayerStats(caster));
+
+            // Également update les stats du round courant si un round est actif
+            com.wakfu.domain.model.RoundModel currentRound = currentFight.getCurrentRoundModel();
+            PlayerStats roundStats = null;
+            if (currentRound != null) {
+                roundStats = currentRound.getOrCreatePlayerStats(caster.getName());
+            }
 
             switch (event.getType()) {
                 case DAMAGE:
                     stats.addDamage(event);
+                    if (roundStats != null) roundStats.addDamage(event);
                     break;
                 case HEAL:
                     stats.addHeal(event);
+                    if (roundStats != null) roundStats.addHeal(event);
                     break;
                 case SHIELD:
                     stats.addShield(event);
+                    if (roundStats != null) roundStats.addShield(event);
                     break;
                 default:
                     break;

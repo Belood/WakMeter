@@ -30,7 +30,6 @@ public class UIManager {
 
     private final Stage primaryStage;
     private final MainUI mainUI;
-    private final Label statusLabel;    // affiche le dossier de logs / messages
     private final VBox playersContainer;
 
     // Turn breakdown UI (per-round details)
@@ -66,7 +65,6 @@ public class UIManager {
         this.mainUI = new MainUI(primaryStage);
         this.playersContainer = mainUI.getCenterContainer();
 
-        this.statusLabel = new Label("En attente de combat...");
 
         this.refreshButton = new Button("🔄");
         this.autoResetCheck = new CheckBox("Auto-reset");
@@ -105,11 +103,8 @@ public class UIManager {
         // Add header controls to MainUI
         mainUI.addAllToHeader(List.of(
             selectLogsFolderButton, refreshButton, autoResetCheck, turnDetailsBtn,
-            statusLabel, historyCheck, clearHistoryButton
+            historyCheck, clearHistoryButton
         ));
-
-        // Si un dossier est déjà configuré, l'afficher
-        UserSettings.loadLogFolder().ifPresent(p -> statusLabel.setText("Logs folder: " + p));
     }
 
     /**
@@ -130,7 +125,7 @@ public class UIManager {
             if (chosen != null) {
                 String path = chosen.getAbsolutePath();
                 UserSettings.saveLogFolder(path);
-                statusLabel.setText("Logs folder: " + path);
+                setAppStatus(com.wakfu.data.MessageProvider.logFolderSelected());
                 if (onLogFolderSelected != null) onLogFolderSelected.accept(path);
             }
         });
@@ -153,8 +148,8 @@ public class UIManager {
         clearHistoryButton.setOnAction(e -> {
             System.identityHashCode(e);
             boolean ok = FightHistoryManager.clearHistory();
-            if (ok) statusLabel.setText("Historique effacé");
-            else statusLabel.setText("Erreur lors de l'effacement de l'historique");
+            if (ok) setAppStatus(com.wakfu.data.MessageProvider.historyCleared());
+            else setAppStatus(com.wakfu.data.MessageProvider.historyClearError());
         });
         clearHistoryButton.setVisible(false);
         clearHistoryButton.setMinWidth(36);
@@ -187,20 +182,12 @@ public class UIManager {
     }
 
     /**
-     * Affiche un message simple (état ou notification) dans le header (statusLabel).
-     */
-    public void showMessage(String title, String message) {
-        Platform.runLater(() -> statusLabel.setText(title + " - " + message));
-    }
-
-    /**
      * Réinitialise l'affichage UI localement.
      */
     private void resetData() {
         Platform.runLater(() -> {
             playersContainer.getChildren().clear();
-            statusLabel.setText("En attente de combat...");
-            setAppStatus("En attente de combat...");
+            setAppStatus(com.wakfu.data.MessageProvider.waitingCombat());
             // Clear breakdown pane
             mainUI.setBreakdownPanel(null);
             currentSelectedPlayer = null;
@@ -280,7 +267,7 @@ public class UIManager {
      * Affiche un message d'erreur simple.
      */
     public void showError(String title, String message) {
-        Platform.runLater(() -> statusLabel.setText("❌ " + title + ": " + message));
+        Platform.runLater(() -> setAppStatus("❌ " + title + ": " + message));
     }
 
     /**

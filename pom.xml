@@ -76,7 +76,7 @@
                             <!-- For modular applications use 'module' in the form module/name -->
                             <module>com.wakfu/com.wakfu.WakfuMeterApp</module>
                             <destination>${project.build.directory}/installer</destination>
-                            <icon>src/main/resources/assets/icon.ico</icon>
+                            <icon>${project.build.directory}/classes/assets/icon.ico</icon>
                         </configuration>
                     </execution>
                 </executions>

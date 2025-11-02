@@ -52,6 +52,7 @@ public class LogProcessor {
     // === Analyse de chaque ligne ===
     public void processLine(String line) {
         if (line.isEmpty()) return;
+        if (PatternExclusions.shouldIgnore(line)) return;
         line = PatternExclusions.clean(line);
 
         long tsNow = extractLogMillis(line);
@@ -133,6 +134,18 @@ public class LogProcessor {
         Fighter caster = findRecentCaster(tsNow);
         Fighter target = fighters.computeIfAbsent(targetName, n -> new Enemy(n, -1, n));
 
+        // Ignorer les dégâts auto-infligés pour les joueurs
+        if (caster instanceof Player && caster.getName().equals(target.getName())) {
+            System.out.printf("[Parser] IGNORED (self-damage): %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
+            return;
+        }
+
+        // Ignorer le friendly fire (joueur attaque un autre joueur)
+        if (caster instanceof Player && target instanceof Player && !caster.getName().equals(target.getName())) {
+            System.out.printf("[Parser] IGNORED (friendly-fire): %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
+            return;
+        }
+
         Ability ability = lastAbilityByCaster.getOrDefault(
                 caster.getName(),
                 new Ability("Inconnu", "Sort direct", element, DamageSourceType.DIRECT)
@@ -188,6 +201,18 @@ public class LogProcessor {
         }
 
         Fighter target = fighters.computeIfAbsent(targetName, n -> new Enemy(n, -1, n));
+
+        // Ignorer les dégâts auto-infligés pour les joueurs
+        if (caster instanceof Player && caster.getName().equals(target.getName())) {
+            System.out.printf("[Parser] IGNORED (self-damage indirect): %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
+            return;
+        }
+
+        // Ignorer le friendly fire (joueur attaque un autre joueur)
+        if (caster instanceof Player && target instanceof Player && !caster.getName().equals(target.getName())) {
+            System.out.printf("[Parser] IGNORED (friendly-fire indirect): %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
+            return;
+        }
 
         Ability ability = new Ability(effectName, "Effet indirect", element,
                 isTrueIndirect ? DamageSourceType.INDIRECT : DamageSourceType.DIRECT);

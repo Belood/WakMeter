@@ -44,16 +44,18 @@ public class WakfuMeterApp extends Application {
         uiManager.setOnLogFolderSelected(path -> {
             try {
                 Path logFile = Paths.get(path).resolve("wakfu.log");
+                if (!logFile.toFile().exists()) {
+                    uiManager.setAppStatus(MessageProvider.noLogFile());
+                    return;
+                }
                 if (logParser != null) logParser.stop();
                 logParser = new LogParser(logProcessor);
                 logParser.startRealtimeParsing(logFile, eventProcessor::onEvent);
-                uiManager.showMessage("Wakfu Meter", "Lecture des logs: " + logFile);
                 uiManager.setAppStatus(MessageProvider.logsDetected());
                 uiManager.setAppStatus(MessageProvider.waitingCombat());
             } catch (Exception e) {
                 uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
                 System.out.printf(e.getMessage());
-                uiManager.setAppStatus("Inactif");
             }
         });
 
@@ -73,34 +75,38 @@ public class WakfuMeterApp extends Application {
             // démarrage direct
             try {
                 Path logFile = Paths.get(saved.get()).resolve("wakfu.log");
-                logParser = new LogParser(logProcessor);
-                logParser.startRealtimeParsing(logFile, eventProcessor::onEvent);
-                uiManager.showMessage("Wakfu Meter", "Lecture des logs: " + logFile);
-                uiManager.setAppStatus(MessageProvider.logsDetected());
-                uiManager.setAppStatus(MessageProvider.waitingCombat());
+                if (!logFile.toFile().exists()) {
+                    uiManager.setAppStatus(MessageProvider.noLogFile());
+                } else {
+                    logParser = new LogParser(logProcessor);
+                    logParser.startRealtimeParsing(logFile, eventProcessor::onEvent);
+                    uiManager.setAppStatus(MessageProvider.logsDetected());
+                    uiManager.setAppStatus(MessageProvider.waitingCombat());
+                }
             } catch (Exception e) {
                 uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
                 System.out.printf(e.getMessage());
-                uiManager.setAppStatus("Inactif");
             }
             uiManager.setOnLogFolderSelected(path -> {
                 try {
                     Path logFile = Paths.get(path).resolve("wakfu.log");
+                    if (!logFile.toFile().exists()) {
+                        uiManager.setAppStatus(MessageProvider.noLogFile());
+                        return;
+                    }
                     if (logParser != null) logParser.stop();
                     logParser = new LogParser(logProcessor);
                     logParser.startRealtimeParsing(logFile, eventProcessor::onEvent);
-                    uiManager.showMessage("Wakfu Meter", "Lecture des logs: " + logFile);
                     uiManager.setAppStatus(MessageProvider.logsDetected());
                     uiManager.setAppStatus(MessageProvider.waitingCombat());
                 } catch (Exception e) {
                     uiManager.showError("Erreur", "Impossible de démarrer le parser: " + e.getMessage());
                     System.out.printf(e.getMessage());
-                    uiManager.setAppStatus("Inactif");
                 }
             });
+        } else {
+            uiManager.setAppStatus(MessageProvider.appReady());
         }
-
-        uiManager.showMessage("Wakfu Meter", "Prêt");
 
         uiManager.setOnAutoResetChanged(enabled -> {
             if (enabled) {

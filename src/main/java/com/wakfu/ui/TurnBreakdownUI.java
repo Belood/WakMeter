@@ -1,6 +1,7 @@
 package com.wakfu.ui;
 
 import com.wakfu.domain.model.FightModel;
+import com.wakfu.domain.model.PlayerStats;
 import com.wakfu.domain.model.RoundModel;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -117,19 +118,21 @@ public class TurnBreakdownUI {
                 grid.getColumnConstraints().addAll(java.util.Arrays.asList(col0, col1, col2, col3));
 
                 int row = 0;
-                Map<String, Integer> damages = round.getDamageByPlayer();
-                int totalRound = damages.values().stream().mapToInt(Integer::intValue).sum();
+                Map<String, PlayerStats> playerStats = round.getPlayerStatsByRound();
+                int totalRound = playerStats.values().stream()
+                        .mapToInt(PlayerStats::getTotalDamage)
+                        .sum();
                 if (totalRound == 0) totalRound = 1;
 
                 // sort players by damage desc
-                List<Map.Entry<String, Integer>> entries = damages.entrySet().stream()
-                        .sorted((a,b) -> Integer.compare(b.getValue(), a.getValue()))
+                List<Map.Entry<String, PlayerStats>> entries = playerStats.entrySet().stream()
+                        .sorted((a,b) -> Integer.compare(b.getValue().getTotalDamage(), a.getValue().getTotalDamage()))
                         .toList();
 
-                for (Map.Entry<String, Integer> e : entries) {
+                for (Map.Entry<String, PlayerStats> e : entries) {
                     String player = e.getKey();
                     if (selected != null && !selected.equals(player)) continue;
-                    int dmg = e.getValue();
+                    int dmg = e.getValue().getTotalDamage();
                     double pct = (double) dmg / totalRound;
 
                     Label name = new Label(player);

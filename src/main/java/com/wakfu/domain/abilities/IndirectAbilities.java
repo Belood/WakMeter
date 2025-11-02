@@ -12,7 +12,7 @@ public final class IndirectAbilities {
     private IndirectAbilities() {} // empêche l’instanciation
 
     public static final Set<String> NAMES = Set.of(
-            "Enflammé"
+            "Enflammé","Contre-attaque","Marque itsade"
     );
 
     /**
