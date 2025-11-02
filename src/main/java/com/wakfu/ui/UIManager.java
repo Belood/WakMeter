@@ -6,6 +6,10 @@ import com.wakfu.domain.model.PlayerStats;
 import com.wakfu.service.DamageCalculator;
 import com.wakfu.domain.model.FightModel;
 import com.wakfu.storage.FightHistoryManager;
+import com.wakfu.ui.overall.TotalBreakdownPane;
+import com.wakfu.ui.overall.TotalDamagePane;
+import com.wakfu.ui.turn.TurnBreakdownPane;
+import com.wakfu.ui.turn.TurnDetailsPane;
 import javafx.application.Platform;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -17,6 +21,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
+
+// Note: PlayerUI is defined in TotalDamagePane.java
 
 /**
  * UIManager acts as the MVC Controller.
@@ -33,19 +39,23 @@ public class UIManager {
     private final VBox playersContainer;
 
     // Turn breakdown UI (per-round details)
-    private TurnBreakdownUI turnBreakdownUI = null;
+    private TurnDetailsPane turnDetailsUI = null;
     // Keep last model to feed TurnBreakdownUI
     private FightModel lastModel = null;
 
     // Track the currently displayed breakdown panel
     private PlayerStats currentSelectedPlayer = null;
 
+    // Current display mode
+    private DisplayMode currentMode = DisplayMode.TOTAL;
+
     // === Controls Elements ===
     private final Button refreshButton;
     private final CheckBox autoResetCheck;
     private final Button selectLogsFolderButton;
     private final DamageCalculator damageCalculator;
-    private final Button turnDetailsBtn;
+    private final Button totalBtn;
+    private final Button tourBtn;
     // Historique
     private final CheckBox historyCheck;
     private final Button clearHistoryButton;
@@ -71,7 +81,8 @@ public class UIManager {
         this.selectLogsFolderButton = new Button("📁");
         this.historyCheck = new CheckBox("Historique");
         this.clearHistoryButton = new Button("✖");
-        this.turnDetailsBtn = new Button("\uD83D\uDCCA");
+        this.totalBtn = new Button("Total");
+        this.tourBtn = new Button("Tour");
 
         setupUI();
     }
@@ -102,9 +113,12 @@ public class UIManager {
 
         // Add header controls to MainUI
         mainUI.addAllToHeader(List.of(
-            selectLogsFolderButton, refreshButton, autoResetCheck, turnDetailsBtn,
+            selectLogsFolderButton, refreshButton, autoResetCheck,
             historyCheck, clearHistoryButton
         ));
+
+        // Add mode buttons
+        mainUI.getModeButtonsBox().getChildren().addAll(totalBtn, tourBtn);
     }
 
     /**
@@ -162,15 +176,22 @@ public class UIManager {
             }
         });
 
-        // Turn details button
-        turnDetailsBtn.setTooltip(new Tooltip("Détails Par tour"));
-        turnDetailsBtn.setOnAction(e -> {
+        // Total button
+        totalBtn.setTooltip(new Tooltip("Mode Total"));
+        totalBtn.setOnAction(e -> {
             System.identityHashCode(e);
-            if (turnBreakdownUI == null) turnBreakdownUI = new TurnBreakdownUI(primaryStage);
-            turnBreakdownUI.show();
-            if (lastModel != null) turnBreakdownUI.update(lastModel);
+            switchToTotalMode();
         });
-        turnDetailsBtn.setMinWidth(36);
+
+        // Tour button
+        tourBtn.setTooltip(new Tooltip("Détails Par tour"));
+        tourBtn.setOnAction(e -> {
+            System.identityHashCode(e);
+            switchToTourMode();
+        });
+
+        // Set default mode styling
+        updateModeButtons();
     }
 
     /**
@@ -223,7 +244,7 @@ public class UIManager {
                     });
 
                     // pass a callback so breakdown opens/updates in the right pane
-                    PlayerUI playerUI = new PlayerUI(ps, pct, c, this::showBreakdownInRightPane);
+                    TotalDamagePane playerUI = new TotalDamagePane(ps, pct, c, this::showBreakdownInRightPane);
                     HBox rowBox = playerUI.render();
                     HBox.setHgrow(rowBox, Priority.ALWAYS);
                     playersContainer.getChildren().add(rowBox);
@@ -279,11 +300,76 @@ public class UIManager {
              try {
                 // Remember the selected player for auto-refresh on model updates
                 currentSelectedPlayer = stats;
-                Pane panel = BreakdownPane.buildPanel(stats);
+                Pane panel = TotalBreakdownPane.buildPanel(stats);
                 mainUI.setBreakdownPanel(panel);
              } catch (Exception e) {
                  showError("Erreur", "Impossible d'afficher le breakdown: " + e.getMessage());
              }
          });
      }
+
+    /**
+     * Switch to Total mode (shows player total damages)
+     */
+    private void switchToTotalMode() {
+        if (currentMode == DisplayMode.TOTAL) return;
+        currentMode = DisplayMode.TOTAL;
+        updateModeButtons();
+
+        Platform.runLater(() -> {
+            mainUI.setCenterContent(playersContainer);
+            // Refresh display with last model
+            if (lastModel != null) {
+                refresh(lastModel);
+            }
+        });
+    }
+
+    /**
+     * Switch to Tour mode (shows per-round breakdown)
+     */
+    private void switchToTourMode() {
+        if (currentMode == DisplayMode.TOUR) return;
+        currentMode = DisplayMode.TOUR;
+        updateModeButtons();
+
+        Platform.runLater(() -> {
+            if (turnDetailsUI == null) {
+                turnDetailsUI = new TurnDetailsPane(primaryStage, this::showTurnBreakdownInRightPane);
+            }
+            mainUI.setCenterContent(turnDetailsUI.getContent());
+            if (lastModel != null) {
+                turnDetailsUI.update(lastModel, playerColors);
+            }
+        });
+    }
+
+    /**
+     * Update button styles to show which mode is selected
+     */
+    private void updateModeButtons() {
+        Platform.runLater(() -> {
+            if (currentMode == DisplayMode.TOTAL) {
+                totalBtn.setStyle("-fx-background-color: #4a9eff; -fx-text-fill: white; -fx-font-weight: bold;");
+                tourBtn.setStyle("");
+            } else {
+                totalBtn.setStyle("");
+                tourBtn.setStyle("-fx-background-color: #4a9eff; -fx-text-fill: white; -fx-font-weight: bold;");
+            }
+        });
+    }
+
+    /**
+     * Shows breakdown for a specific round/player in the right pane
+     */
+    private void showTurnBreakdownInRightPane(int roundNumber, PlayerStats stats) {
+        Platform.runLater(() -> {
+            try {
+                Pane panel = TurnBreakdownPane.buildPanel(roundNumber, stats);
+                mainUI.setBreakdownPanel(panel);
+            } catch (Exception e) {
+                showError("Erreur", "Impossible d'afficher le breakdown du tour: " + e.getMessage());
+            }
+        });
+    }
 }

@@ -145,7 +145,7 @@ UIManager.displayPlayerStats()
     → Crée PlayerUI pour chaque joueur
     → Chaque PlayerUI injecte le callback
     ↓
-MainUI.getCenterContainer().add(playerUI.render())
+MainUI.getCenterContainer().add(totalDamagePane.render())
 ```
 
 ### Au clic sur Breakdown

@@ -1,4 +1,4 @@
-package com.wakfu.ui;
+package com.wakfu.ui.overall;
 
 import com.wakfu.domain.actors.Player;
 
@@ -14,7 +14,7 @@ import javafx.scene.paint.Color;
 import java.util.List;
 import java.util.function.Consumer;
 
-public class PlayerUI {
+public class TotalDamagePane {
 
     private final PlayerStats stats;
     private final double pct;                 // 0..1 percentage dans la barre principale
@@ -23,15 +23,15 @@ public class PlayerUI {
     private final Color trackColor;
     private final Consumer<PlayerStats> onBreakdown;
 
-    public PlayerUI(PlayerStats stats, double percentage, Color barColor, Consumer<PlayerStats> onBreakdownRequested) {
+    public TotalDamagePane(PlayerStats stats, double percentage, Color barColor, Consumer<PlayerStats> onBreakdownRequested) {
         this(stats, percentage, barColor, percentage, onBreakdownRequested);
     }
 
-    public PlayerUI(PlayerStats stats, double percentage, Color barColor, double damagePercentage, Consumer<PlayerStats> onBreakdownRequested) {
+    public TotalDamagePane(PlayerStats stats, double percentage, Color barColor, double damagePercentage, Consumer<PlayerStats> onBreakdownRequested) {
         this(stats, percentage, barColor, barColor, damagePercentage, onBreakdownRequested);
     }
 
-    public PlayerUI(PlayerStats stats, double percentage, Color barColor, Color trackColor, double damagePercentage, Consumer<PlayerStats> onBreakdownRequested) {
+    public TotalDamagePane(PlayerStats stats, double percentage, Color barColor, Color trackColor, double damagePercentage, Consumer<PlayerStats> onBreakdownRequested) {
         this.stats = stats;
         this.pct = clamp01(percentage);
         this.damagePercentage = clamp01(damagePercentage);
@@ -69,24 +69,24 @@ public class PlayerUI {
         StackPane bar = new StackPane();
         bar.setMinWidth(0);
         bar.setMaxWidth(Double.MAX_VALUE);
-        bar.setPrefHeight(16);
+        bar.setPrefHeight(12);
 
         Region track = new Region();
         track.setMinWidth(0);
-        track.setPrefHeight(16);
-        track.setBackground(bg(Color.rgb(0, 0, 0, 0.10), 8));
+        track.setPrefHeight(8);
+        track.setBackground(bg(Color.rgb(0, 0, 0, 0.10), 6));
 
         Region damageTrack = new Region();
         damageTrack.setMinWidth(0);
-        damageTrack.setPrefHeight(16);
-        damageTrack.setBackground(bg(trackColor, 8));
+        damageTrack.setPrefHeight(8);
+        damageTrack.setBackground(bg(trackColor, 6));
         damageTrack.setOpacity(0.35);
         StackPane.setAlignment(damageTrack, Pos.CENTER_LEFT);
 
         Region fill = new Region();
         fill.setMinWidth(0);
-        fill.setPrefHeight(16);
-        fill.setBackground(bg(barColor, 8));
+        fill.setPrefHeight(8);
+        fill.setBackground(bg(barColor, 6));
         StackPane.setAlignment(fill, Pos.CENTER_LEFT);
 
         // largeur de la barre liée au conteneur
@@ -120,6 +120,9 @@ public class PlayerUI {
             }
         });
 
+        // Ajout d'une marge droite de 10 après le bouton details
+        GridPane.setMargin(details, new Insets(0, 10, 0, 0));
+
         // Placement colonnes
         row.add(name,        0, 0);
         row.add(barContainer, 1, 0);
@@ -129,7 +132,7 @@ public class PlayerUI {
 
         HBox wrapper = new HBox(row);
         wrapper.setAlignment(Pos.CENTER_LEFT);
-        wrapper.setPadding(new Insets(5, 0, 5, 15));
+        wrapper.setPadding(new Insets(2, 0, 2, 15));
         HBox.setHgrow(row, Priority.ALWAYS);
         return wrapper;
     }

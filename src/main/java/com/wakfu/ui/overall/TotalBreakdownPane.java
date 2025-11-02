@@ -1,4 +1,4 @@
-package com.wakfu.ui;
+package com.wakfu.ui.overall;
 
 import com.wakfu.data.SpellCostProvider;
 import com.wakfu.domain.model.SpellStats;
@@ -16,9 +16,9 @@ import java.util.Map;
  * BreakdownPane renders damage breakdown statistics in a reusable Pane format.
  * This component displays spell damage breakdown with colored bars and percentages.
  */
-public class BreakdownPane {
+public class TotalBreakdownPane {
 
-    private BreakdownPane() {
+    private TotalBreakdownPane() {
         // Utility class - no instantiation
     }
 
@@ -102,9 +102,10 @@ public class BreakdownPane {
         GridPane headerGrid = new GridPane();
         headerGrid.setHgap(10);
         headerGrid.setAlignment(Pos.CENTER_LEFT);
-        ColumnConstraints hCol0 = new ColumnConstraints(60);
-        hCol0.setMinWidth(60);
-        hCol0.setMaxWidth(60);
+        ColumnConstraints hCol0 = new ColumnConstraints(80);
+        hCol0.setMinWidth(80);
+        hCol0.setMaxWidth(120);
+        hCol0.setHgrow(Priority.ALWAYS);
         ColumnConstraints hCol1 = new ColumnConstraints();
         hCol1.setHgrow(Priority.ALWAYS);
         ColumnConstraints hCol2 = new ColumnConstraints(50);
@@ -159,9 +160,10 @@ public class BreakdownPane {
 
                     GridPane rowGrid = new GridPane();
                     rowGrid.setHgap(10);
-                    ColumnConstraints col0 = new ColumnConstraints(60);
-                    col0.setMinWidth(60);
-                    col0.setMaxWidth(60);
+                    ColumnConstraints col0 = new ColumnConstraints(80);
+                    col0.setMinWidth(80);
+                    col0.setMaxWidth(120);
+                    col0.setHgrow(Priority.ALWAYS);
                     ColumnConstraints col1 = new ColumnConstraints();
                     col1.setHgrow(Priority.ALWAYS);
                     ColumnConstraints col2 = new ColumnConstraints(50);

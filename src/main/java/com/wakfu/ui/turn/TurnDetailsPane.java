@@ -1,4 +1,4 @@
-package com.wakfu.ui;
+package com.wakfu.ui.turn;
 
 import com.wakfu.domain.model.FightModel;
 import com.wakfu.domain.model.PlayerStats;
@@ -32,18 +32,25 @@ import java.util.stream.Collectors;
 /**
  * Fenêtre affichant les dégâts par round (par joueur) avec possibilité de filtrer par joueur.
  */
-public class TurnBreakdownUI {
+public class TurnDetailsPane {
+
+    @FunctionalInterface
+    public interface OnBreakdownCallback {
+        void onBreakdown(int roundNumber, PlayerStats stats);
+    }
 
     private final Stage stage;
     private final VBox content;
     private final ComboBox<String> playerFilter;
     private FightModel model;
-    private final Map<String, javafx.scene.paint.Color> playerColors = new ConcurrentHashMap<>();
+    private Map<String, javafx.scene.paint.Color> playerColors = new ConcurrentHashMap<>();
+    private final OnBreakdownCallback onBreakdownCallback;
 
-    public TurnBreakdownUI(Stage owner) {
+    public TurnDetailsPane(Stage owner, OnBreakdownCallback callback) {
         this.stage = new Stage();
         this.content = new VBox(8);
         this.playerFilter = new ComboBox<>();
+        this.onBreakdownCallback = callback;
         setupUI(owner);
     }
 
@@ -72,15 +79,16 @@ public class TurnBreakdownUI {
         if (css != null) scene.getStylesheets().add(css.toExternalForm());
         stage.setScene(scene);
         stage.initOwner(owner);
-        stage.setTitle("Turn Breakdown");
+        stage.setTitle("Details par tours");
     }
 
     public void show() {
         stage.show();
     }
 
-    public void update(FightModel model) {
+    public void update(FightModel model, Map<String, javafx.scene.paint.Color> colors) {
         this.model = model;
+        this.playerColors = colors != null ? colors : new ConcurrentHashMap<>();
         // populate player filter
         List<String> players = model.getStatsByPlayer().values().stream()
                 .map(ps -> ps.getPlayer().getName())
@@ -90,6 +98,10 @@ public class TurnBreakdownUI {
             playerFilter.getItems().setAll(players);
             refreshContent();
         });
+    }
+
+    public VBox getContent() {
+        return content;
     }
 
     private void refreshContent() {
@@ -102,20 +114,21 @@ public class TurnBreakdownUI {
             for (RoundModel round : model.getRounds()) {
                 VBox roundBox = new VBox(6);
                 roundBox.setPadding(new Insets(6));
-                Label rTitle = new Label("Round " + round.getRoundNumber());
+                Label rTitle = new Label("Tour " + round.getRoundNumber());
                 rTitle.setStyle("-fx-font-weight:bold;");
                 roundBox.getChildren().add(rTitle);
 
                 GridPane grid = new GridPane();
-                grid.setHgap(10);
-                grid.setVgap(6);
+                grid.setHgap(5);
+                grid.setVgap(3);
 
-                ColumnConstraints col0 = new ColumnConstraints(200);
-                col0.setMinWidth(200); col0.setMaxWidth(200);
+                ColumnConstraints col0 = new ColumnConstraints(90);
+                col0.setMinWidth(90); col0.setMaxWidth(90);
                 ColumnConstraints col1 = new ColumnConstraints(); col1.setHgrow(Priority.ALWAYS);
-                ColumnConstraints col2 = new ColumnConstraints(100); col2.setMinWidth(100); col2.setMaxWidth(100);
+                ColumnConstraints col2 = new ColumnConstraints(60); col2.setMinWidth(60); col2.setMaxWidth(60);
                 ColumnConstraints col3 = new ColumnConstraints(60); col3.setMinWidth(60); col3.setMaxWidth(60);
-                grid.getColumnConstraints().addAll(java.util.Arrays.asList(col0, col1, col2, col3));
+                ColumnConstraints col4 = new ColumnConstraints(48); col4.setMinWidth(48); col4.setMaxWidth(48);
+                grid.getColumnConstraints().addAll(java.util.Arrays.asList(col0, col1, col2, col3, col4));
 
                 int row = 0;
                 Map<String, PlayerStats> playerStats = round.getPlayerStatsByRound();
@@ -129,49 +142,74 @@ public class TurnBreakdownUI {
                         .sorted((a,b) -> Integer.compare(b.getValue().getTotalDamage(), a.getValue().getTotalDamage()))
                         .toList();
 
+                final int currentRound = round.getRoundNumber();
                 for (Map.Entry<String, PlayerStats> e : entries) {
                     String player = e.getKey();
                     if (selected != null && !selected.equals(player)) continue;
-                    int dmg = e.getValue().getTotalDamage();
+                    PlayerStats stats = e.getValue();
+                    int dmg = stats.getTotalDamage();
                     double pct = (double) dmg / totalRound;
 
                     Label name = new Label(player);
-                    name.setPrefWidth(200);
+                    name.setPrefWidth(90);
+                    name.setAlignment(Pos.CENTER_LEFT);
+
+                    // Bar container with proportional width
+                    HBox barContainer = new HBox();
+                    barContainer.setMinWidth(0);
+                    barContainer.setMaxWidth(Double.MAX_VALUE);
+                    barContainer.setAlignment(Pos.CENTER_LEFT);
 
                     // Track + Fill
+                    StackPane bar = new StackPane();
+                    bar.setMinWidth(0);
+                    bar.setMaxWidth(Double.MAX_VALUE);
+                    bar.setPrefHeight(12);
+
                     Region track = new Region();
-                    track.getStyleClass().add("bar-track");
-                    track.setPrefHeight(12);
                     track.setMinWidth(0);
+                    track.setPrefHeight(12);
+                    track.setBackground(new Background(new BackgroundFill(Color.rgb(0, 0, 0, 0.10), new CornerRadii(6), Insets.EMPTY)));
 
                     Region fill = new Region();
-                    fill.getStyleClass().add("bar-fill");
+                    fill.setMinWidth(0);
                     fill.setPrefHeight(12);
                     javafx.scene.paint.Color color = getColorForPlayer(player);
-                    fill.setBackground(new Background(new BackgroundFill(color.deriveColor(0,1.0,1.0,0.85), new CornerRadii(6), Insets.EMPTY)));
-                    fill.setMinWidth(0);
-
-                    StackPane barPane = new StackPane(track, fill);
-                    barPane.setMinWidth(0);
-                    barPane.setMaxWidth(Double.MAX_VALUE);
-                    GridPane.setHgrow(barPane, Priority.ALWAYS);
-
-                    // Bind widths
-                    track.prefWidthProperty().bind(barPane.widthProperty());
-                    fill.prefWidthProperty().bind(track.widthProperty().multiply(Math.max(0.0, Math.min(1.0, pct))));
-                    fill.maxWidthProperty().bind(track.widthProperty().multiply(Math.max(0.0, Math.min(1.0, pct))));
+                    fill.setBackground(new Background(new BackgroundFill(color, new CornerRadii(6), Insets.EMPTY)));
                     StackPane.setAlignment(fill, Pos.CENTER_LEFT);
 
+                    track.prefWidthProperty().bind(bar.widthProperty());
+                    fill.prefWidthProperty().bind(track.widthProperty());
+
+                    bar.getChildren().addAll(track, fill);
+                    HBox.setHgrow(bar, Priority.NEVER);
+                    bar.prefWidthProperty().bind(barContainer.widthProperty().multiply(pct));
+
+                    barContainer.getChildren().add(bar);
+                    GridPane.setHgrow(barContainer, Priority.ALWAYS);
+
                     Label val = new Label(String.format("%,d", dmg));
-                    val.setPrefWidth(100);
-                    Label pctLabel = new Label(String.format("%1$.1f%%", pct * 100));
-                    pctLabel.getStyleClass().add("percent-label");
+                    val.setPrefWidth(60);
+                    val.setAlignment(Pos.CENTER_RIGHT);
+
+                    Label pctLabel = new Label(String.format("%.1f%%", pct * 100));
                     pctLabel.setPrefWidth(60);
+                    pctLabel.setAlignment(Pos.CENTER_RIGHT);
+
+                    javafx.scene.control.Button details = new javafx.scene.control.Button("🔍");
+                    details.setTooltip(new javafx.scene.control.Tooltip("Breakdown"));
+                    details.setMinWidth(48);
+                    details.setOnAction(evt -> {
+                        if (onBreakdownCallback != null) {
+                            onBreakdownCallback.onBreakdown(currentRound, stats);
+                        }
+                    });
 
                     grid.add(name, 0, row);
-                    grid.add(barPane, 1, row);
+                    grid.add(barContainer, 1, row);
                     grid.add(val, 2, row);
                     grid.add(pctLabel, 3, row);
+                    grid.add(details, 4, row);
                     row++;
                 }
 

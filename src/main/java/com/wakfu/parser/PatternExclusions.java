@@ -17,7 +17,8 @@ public final class PatternExclusions {
             Pattern.compile("\\(Critiques\\)"),
             Pattern.compile("\\(Simple\\)"),
             Pattern.compile("\\(Double\\)"),
-            Pattern.compile("\\(Veines de Wakfu\\)")
+            Pattern.compile("\\(Veines de Wakfu\\)"),
+            Pattern.compile("\\(Courroux\\)")
     );
 
     private static final List<String> IGNORE = List.of(

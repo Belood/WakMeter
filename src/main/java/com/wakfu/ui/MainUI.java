@@ -22,13 +22,17 @@ public class MainUI {
     private final Label appStatusLabel;
     private final VBox centerContainer;
     private final Pane rightPane;
+    private final Label modeLabel;
+    private final HBox modeButtonsBox;
 
     public MainUI(Stage primaryStage) {
         this.primaryStage = primaryStage;
         this.root = new BorderPane();
         this.headerBox = createHeader();
         this.appStatusLabel = new Label("App Status: \"En attente\"");
-        this.centerContainer = new VBox(6);
+        this.modeLabel = new Label("Mode:");
+        this.modeButtonsBox = new HBox(5);
+        this.centerContainer = new VBox(3);
         this.rightPane = new StackPane();
 
         setupLayout();
@@ -52,10 +56,20 @@ public class MainUI {
     private void setupLayout() {
         // Header section (top)
         VBox topSection = new VBox(0);
-        topSection.getChildren().addAll(headerBox, appStatusLabel);
 
-        // Padding pour appStatusLabel
-        appStatusLabel.setPadding(new Insets(0, 10, 0, 15));
+        // Status bar avec Mode et boutons
+        HBox statusBar = new HBox(15);
+        statusBar.setAlignment(Pos.CENTER_LEFT);
+        statusBar.setPadding(new Insets(5, 10, 5, 15));
+
+        appStatusLabel.setPadding(new Insets(0));
+        modeLabel.setPadding(new Insets(0));
+        modeLabel.setStyle("-fx-font-weight: bold;");
+
+        statusBar.getChildren().addAll(appStatusLabel, modeLabel, modeButtonsBox);
+        HBox.setHgrow(appStatusLabel, Priority.ALWAYS);
+
+        topSection.getChildren().addAll(headerBox, statusBar);
 
         // Center: Players list (scrollable)
         ScrollPane centerScroll = new ScrollPane(centerContainer);
@@ -67,20 +81,21 @@ public class MainUI {
 
         // Right pane: Breakdown (initially empty)
         rightPane.setStyle("-fx-border-color: #333; -fx-border-width: 0 0 0 1;");
-        rightPane.setPrefWidth(400);
-        rightPane.setMinWidth(350);
+        rightPane.setPrefWidth(680);
+        rightPane.setMinWidth(480);
 
-        // Layout with SplitPane or HBox
-        HBox centerAndRight = new HBox(0);
-        HBox.setHgrow(centerScroll, Priority.ALWAYS);
-        centerAndRight.getChildren().addAll(centerScroll, rightPane);
+        // Layout with SplitPane for resizable divider
+        javafx.scene.control.SplitPane splitPane = new javafx.scene.control.SplitPane();
+        splitPane.setDividerPositions(0.6);
+        splitPane.getItems().addAll(centerScroll, rightPane);
+        javafx.scene.control.SplitPane.setResizableWithParent(rightPane, false);
 
         root.setTop(topSection);
-        root.setCenter(centerAndRight);
+        root.setCenter(splitPane);
         root.setPadding(new Insets(0));
 
         // Set up the stage
-        javafx.scene.Scene scene = new javafx.scene.Scene(root, 1000, 600);
+        javafx.scene.Scene scene = new javafx.scene.Scene(root, 1000, 680);
         var css = getClass().getResource("/dark-theme.css");
         if (css != null) {
             scene.getStylesheets().add(css.toExternalForm());
@@ -154,5 +169,35 @@ public class MainUI {
      */
     public HBox getHeader() {
         return headerBox;
+    }
+
+    /**
+     * Gets the mode buttons box for adding Total/Tour buttons.
+     */
+    public HBox getModeButtonsBox() {
+        return modeButtonsBox;
+    }
+
+    /**
+     * Gets the mode label.
+     */
+    public Label getModeLabel() {
+        return modeLabel;
+    }
+
+    /**
+     * Sets the center content to display a different pane (for switching between Total and Tour modes)
+     */
+    public void setCenterContent(javafx.scene.Node content) {
+        javafx.scene.control.SplitPane splitPane = (javafx.scene.control.SplitPane) root.getCenter();
+        if (splitPane != null && splitPane.getItems().size() > 0) {
+            ScrollPane centerScroll = new ScrollPane(content);
+            centerScroll.setFitToWidth(true);
+            centerScroll.setStyle("-fx-background: transparent; -fx-background-color: transparent;");
+            centerScroll.setBackground(Background.EMPTY);
+            centerScroll.setPrefViewportHeight(400);
+
+            splitPane.getItems().set(0, centerScroll);
+        }
     }
 }
