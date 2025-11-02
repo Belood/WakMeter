@@ -27,7 +27,7 @@ public class MainUI {
         this.primaryStage = primaryStage;
         this.root = new BorderPane();
         this.headerBox = createHeader();
-        this.appStatusLabel = new Label("App Status: \"Actif\"");
+        this.appStatusLabel = new Label("App Status: \"En attente\"");
         this.centerContainer = new VBox(6);
         this.rightPane = new StackPane();
 

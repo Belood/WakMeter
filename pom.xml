@@ -6,17 +6,13 @@
 
     <groupId>com.wakfu</groupId>
     <artifactId>WakMeter</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>1.0.0</version>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <javafx.version>21</javafx.version>
-        <!-- IMPORTANT: This path is only needed for the 'jpackage' profile on Windows.
-             Update this to match your local JavaFX SDK installation before running: mvn clean package -Pjpackage
-             Example: D:\Java\javafx-sdk-21\lib or C:\Program Files\Java\javafx-sdk-21\lib -->
-        <javafx.sdk.path>D:\Java\javafx-sdk-21\lib</javafx.sdk.path>
     </properties>
 
     <dependencies>
@@ -41,13 +37,6 @@
             <artifactId>jackson-datatype-jsr310</artifactId>
             <version>2.15.2</version>
         </dependency>
-        <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter</artifactId>
-            <version>RELEASE</version>
-            <scope>test</scope>
-        </dependency>
-
     </dependencies>
 
     <build>
@@ -58,158 +47,47 @@
                 <version>0.0.8</version>
                 <configuration>
                     <mainClass>com.wakfu.WakfuMeterApp</mainClass>
+                    <launcher>launcher</launcher>
+                    <compress>2</compress>
+                    <noManPages>true</noManPages>
+                    <noHeaderFiles>true</noHeaderFiles>
+                    <stripDebug>true</stripDebug>
+                    <launcher>${project.artifactId}</launcher>
                 </configuration>
             </plugin>
-
-            <!-- Génère un jar exécutable avec toutes les dépendances (uber-jar) -->
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.0</version>
+                <groupId>org.panteleyev</groupId>
+                <artifactId>jpackage-maven-plugin</artifactId>
+                <version>1.5.2</version>
                 <executions>
                     <execution>
+                        <id>jpackage-app-image</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>shade</goal>
+                            <goal>jpackage</goal>
                         </goals>
                         <configuration>
-                            <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <transformers>
-                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>com.wakfu.WakfuMeterApp</mainClass>
-                                </transformer>
-                            </transformers>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <!-- ...existing code... -->
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-antrun-plugin</artifactId>
-                <version>3.1.0</version>
-                <!-- NOTICE: this execution has been moved into the `jpackage` profile below to avoid requiring jlink on every build -->
-            </plugin>
-
-            <!-- Launch4j: Creates Windows executable (.exe) from JAR -->
-            <plugin>
-                <groupId>com.akathist.maven.plugins.launch4j</groupId>
-                <artifactId>launch4j-maven-plugin</artifactId>
-                <version>2.5.2</version>
-                <executions>
-                    <execution>
-                        <id>create-windows-exe</id>
-                        <phase>package</phase>
-                        <goals>
-                            <goal>launch4j</goal>
-                        </goals>
-                        <configuration>
-                            <headerType>gui</headerType>
-                            <outfile>${project.build.directory}/WakMeter.exe</outfile>
-                            <jar>${project.build.directory}/${project.build.finalName}.jar</jar>
-                            <mainClass>com.wakfu.WakfuMeterApp</mainClass>
-                            <errTitle>WakMeter Error</errTitle>
+                            <name>WakMeter</name>
+                            <appVersion>${project.version}</appVersion>
+                            <vendor>Wakfu</vendor>
+                            <!-- Produces an application image (folder with runtime + launcher). Use EXE/MSI for installer packages. -->
+                            <type>APP_IMAGE</type>
+                            <runtimeImage>${project.build.directory}/image</runtimeImage>
+                            <!-- For modular applications use 'module' in the form module/name -->
+                            <module>com.wakfu/com.wakfu.WakfuMeterApp</module>
+                            <destination>${project.build.directory}/installer</destination>
                             <icon>src/main/resources/assets/icon.ico</icon>
-                            <jre>
-                                <minVersion>21.0.0</minVersion>
-                                <opts>
-                                    <opt>-Xmx512m</opt>
-                                </opts>
-                            </jre>
-                            <versionInfo>
-                                <fileVersion>1.0.0.0</fileVersion>
-                                <txtFileVersion>${project.version}</txtFileVersion>
-                                <fileDescription>WakMeter - Wakfu Damage Meter</fileDescription>
-                                <copyright>Copyright (c) 2024 Wakfu</copyright>
-                                <productVersion>1.0.0.0</productVersion>
-                                <txtProductVersion>${project.version}</txtProductVersion>
-                                <productName>WakMeter</productName>
-                                <internalName>WakMeter</internalName>
-                                <originalFilename>WakMeter.exe</originalFilename>
-                            </versionInfo>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
-
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+            </plugin>
         </plugins>
     </build>
 
-    <!-- Profil dédié à la création d'un runtime et d'un installateur via jlink + jpackage -->
-    <profiles>
-        <profile>
-            <id>jpackage</id>
-            <build>
-                <plugins>
-                    <!-- jlink: génère un runtime minimal (custom-runtime) -->
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-antrun-plugin</artifactId>
-                        <version>3.1.0</version>
-                        <executions>
-                            <execution>
-                                <id>create-custom-runtime</id>
-                                <phase>package</phase>
-                                <configuration>
-                                    <target>
-                                        <echo>🧩 Génération d’un runtime minimal via jlink...</echo>
-                                        <exec executable="jlink">
-                                            <arg value="--module-path"/>
-                                            <!-- Utilise la propriété configurable javafx.sdk.path -->
-                                            <arg value="${javafx.sdk.path}"/>
-
-                                            <arg value="--add-modules"/>
-                                            <arg value="java.base,javafx.controls,javafx.fxml,javafx.graphics"/>
-                                            <arg value="--strip-debug"/>
-                                            <arg value="--no-header-files"/>
-                                            <arg value="--no-man-pages"/>
-                                            <arg value="--output"/>
-                                            <arg value="${project.build.directory}/custom-runtime"/>
-                                        </exec>
-                                    </target>
-                                </configuration>
-                                <goals>
-                                    <goal>run</goal>
-                                </goals>
-                            </execution>
-                        </executions>
-                    </plugin>
-
-                    <!-- jpackage: crée un .exe Windows en utilisant le runtime généré ci-dessus -->
-                    <plugin>
-                        <groupId>org.panteleyev</groupId>
-                        <artifactId>jpackage-maven-plugin</artifactId>
-                        <version>1.5.2</version>
-                        <executions>
-                            <execution>
-                                <id>create-exe</id>
-                                <phase>package</phase>
-                                <goals>
-                                    <goal>jpackage</goal>
-                                </goals>
-                                <configuration>
-                                    <name>WakMeter</name>
-                                    <appVersion>${project.version}</appVersion>
-                                    <vendor>Wakfu</vendor>
-                                    <type>exe</type>
-                                    <input>${project.build.directory}</input>
-                                    <dest>${project.build.directory}/installer</dest>
-                                    <mainJar>${project.build.finalName}.jar</mainJar>
-                                    <mainClass>com.wakfu.WakfuMeterApp</mainClass>
-                                    <runtimeImage>${project.build.directory}/custom-runtime</runtimeImage>
-                                    <icon>src/main/resources/assets/icon.ico</icon>
-                                    <!-- options supplémentaires si besoin -->
-                                    <jvmArgs>
-                                        <jvmArg>-Xmx512m</jvmArg>
-                                    </jvmArgs>
-                                </configuration>
-                            </execution>
-                        </executions>
-                    </plugin>
-                </plugins>
-            </build>
-        </profile>
-    </profiles>
 
 </project>
