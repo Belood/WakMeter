@@ -105,7 +105,7 @@ public class WakfuMeterApp extends Application {
                 }
             });
         } else {
-            uiManager.setAppStatus(MessageProvider.appReady());
+            uiManager.setAppStatus(MessageProvider.addLogPath());
         }
 
         uiManager.setOnAutoResetChanged(enabled -> {

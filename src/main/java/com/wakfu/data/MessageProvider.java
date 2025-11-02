@@ -19,5 +19,6 @@ public class MessageProvider {
     public static String logFolderSelected() { return get("log.folder.selected"); }
     public static String historyCleared() { return get("history.cleared"); }
     public static String historyClearError() { return get("history.clear.error"); }
+    public static String addLogPath() { return get("add.log.path"); }
 }
 
