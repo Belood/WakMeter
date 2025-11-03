@@ -20,6 +20,8 @@ public class CombatEvent extends LogEvent {
     private final int value;
     private final Element element;
     private final DamageSourceType sourceType;
+    private final Integer baseCost;
+    private final int paRegained;
 
     public CombatEvent(
             LocalDateTime timestamp,
@@ -30,6 +32,20 @@ public class CombatEvent extends LogEvent {
             int value,
             Element element
     ) {
+        this(timestamp, caster, target, ability, type, value, element, null, 0);
+    }
+
+    public CombatEvent(
+            LocalDateTime timestamp,
+            Fighter caster,
+            Fighter target,
+            Ability ability,
+            EventType type,
+            int value,
+            Element element,
+            Integer baseCost,
+            int paRegained
+    ) {
         super(timestamp);
         this.caster = caster;
         this.target = target;
@@ -38,6 +54,8 @@ public class CombatEvent extends LogEvent {
         this.value = value;
         this.element = element != null ? element : Element.INCONNU;
         this.sourceType = ability != null ? ability.getSourceType() : DamageSourceType.AUTRE;
+        this.baseCost = baseCost;
+        this.paRegained = paRegained;
     }
 
     public Fighter getCaster() {
@@ -66,6 +84,14 @@ public class CombatEvent extends LogEvent {
 
     public DamageSourceType getSourceType() {
         return sourceType;
+    }
+
+    public Integer getBaseCost() {
+        return baseCost;
+    }
+
+    public int getPaRegained() {
+        return paRegained;
     }
 
     @Override

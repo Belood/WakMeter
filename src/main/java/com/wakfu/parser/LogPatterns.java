@@ -45,4 +45,9 @@ public final class LogPatterns {
     public static final Pattern SHIELD = Pattern.compile(
             "(?U)\\[Information \\(combat\\)\\]\\s+([^:]+):\\s*([\\d\\s\\p{Zs}]+)\\s*Armure\\s*\\(([^)]+)\\)"
     );
+
+    /** Regain de PA */
+    public static final Pattern PA_REGAIN = Pattern.compile(
+            "(?U)\\[Information \\(combat\\)\\]\\s+([^:]+):\\s*([\\d]+)\\s*PA(?:\\s*\\([^)]*\\))?\\s*$"
+    );
 }

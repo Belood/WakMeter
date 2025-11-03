@@ -67,7 +67,7 @@ public class TotalBreakdownPane {
 
         // Header grid
         GridPane headerGrid = new GridPane();
-        headerGrid.setHgap(10);
+        headerGrid.setHgap(4);
         headerGrid.setAlignment(Pos.CENTER_LEFT);
 
         // Use UIUtils to create column constraints
@@ -113,7 +113,7 @@ public class TotalBreakdownPane {
 
                 // Create row grid
                 GridPane rowGrid = new GridPane();
-                rowGrid.setHgap(10);
+                rowGrid.setHgap(4);
 
                 // Use UIUtils to create column constraints
                 ColumnConstraints[] rowColumns = UIUtils.createBreakdownColumns(spellNameColumnWidth);
@@ -123,18 +123,17 @@ public class TotalBreakdownPane {
                 spellLabel.setPrefWidth(spellNameColumnWidth);
 
                 // Create progress bar using UIUtils
-                StackPane barPane = UIUtils.createProgressBar(pct, element, 12, 6);
+                StackPane barPane = UIUtils.createProgressBarNoTrack(pct, element, 12, 6);
                 GridPane.setHgrow(barPane, Priority.ALWAYS);
 
                 Label dmgLabel = new Label(String.format("%,d", dmg));
                 dmgLabel.setPrefWidth(50);
 
-                // Calculate Degat/PA
+                // Calculate Degat/PA using effectivePACost
                 String dmgPerPaText = "-";
-                Integer cost = SpellCostProvider.getCostFor(playerClassKey, spellName);
-                int castCount = sp.getCastCount();
-                if (cost != null && cost > 0 && castCount > 0) {
-                    dmgPerPaText = String.format("%.2f", (double) dmg / (cost * castCount));
+                Integer effectiveCost = sp.getEffectivePACost();
+                if (effectiveCost != null && effectiveCost > 0) {
+                    dmgPerPaText = String.format("%.2f", (double) dmg / effectiveCost);
                 }
                 Label dmgPerPaLabel = new Label(dmgPerPaText);
                 dmgPerPaLabel.setPrefWidth(70);
@@ -160,4 +159,3 @@ public class TotalBreakdownPane {
         return container;
     }
 }
-

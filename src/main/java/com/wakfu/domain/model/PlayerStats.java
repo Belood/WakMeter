@@ -29,7 +29,7 @@ public class PlayerStats {
 
         spells
             .computeIfAbsent(event.getAbility().getName(), SpellStats::new)
-            .addDamage(element, val);
+            .addDamage(element, val, event.getBaseCost(), event.getPaRegained());
     }
 
     public void addHeal(CombatEvent event) {

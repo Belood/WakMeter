@@ -15,13 +15,30 @@ public class SpellDamage {
     private final EventType type;
     private final Element element;
     private final DamageSourceType sourceType;
+    private final Integer baseCost;      // Coût de base du sort (depuis SortsPA.json)
+    private final int paRegained;        // PA regagnés lors du cast
+    private final Integer effectivePACost; // Coût effectif = baseCost - paRegained
 
     public SpellDamage(Ability ability, int damageDealt, EventType type) {
+        this(ability, damageDealt, type, null, 0);
+    }
+
+    public SpellDamage(Ability ability, int damageDealt, EventType type, Integer baseCost, int paRegained) {
         this.ability = ability;
         this.damageDealt = damageDealt;
         this.type = type != null ? type : EventType.DAMAGE;
         this.element = ability != null ? ability.getElement() : Element.INCONNU;
         this.sourceType = ability != null ? ability.getSourceType() : DamageSourceType.AUTRE;
+        this.baseCost = baseCost;
+        this.paRegained = paRegained;
+
+        // Calculer le coût effectif
+        if (baseCost != null && baseCost > 0) {
+            int effective = baseCost - paRegained;
+            this.effectivePACost = Math.max(effective, 0); // Ne peut pas être négatif
+        } else {
+            this.effectivePACost = null;
+        }
     }
 
     public Ability getAbility() {
@@ -42,6 +59,18 @@ public class SpellDamage {
 
     public DamageSourceType getSourceType() {
         return sourceType;
+    }
+
+    public Integer getBaseCost() {
+        return baseCost;
+    }
+
+    public int getPaRegained() {
+        return paRegained;
+    }
+
+    public Integer getEffectivePACost() {
+        return effectivePACost;
     }
 
     @Override

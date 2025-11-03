@@ -25,6 +25,7 @@ public class LogProcessor {
     private final Map<String, Fighter> fighters = new HashMap<>();
     private final Map<String, Ability> lastAbilityByCaster = new HashMap<>();
     private final Map<String, Long> lastCastTime = new HashMap<>();
+    private final Map<String, Integer> paRegainedByCaster = new HashMap<>(); // PA regagnés par joueur
     private String currentPlayerTurn = null;      // joueur actuellement actif
     private int roundNumber = 1;                  // numéro du round en cours
     private final Set<String> playersThisRound = new HashSet<>(); // joueurs ayant déjà joué ce round
@@ -115,6 +116,7 @@ public class LogProcessor {
             Ability ability = new Ability(spellName, "Sort", Element.INCONNU, DamageSourceType.DIRECT);
             lastAbilityByCaster.put(casterName, ability);
             lastCastTime.put(casterName, tsNow);
+            paRegainedByCaster.put(casterName, 0); // Réinitialiser les PA regagnés pour ce nouveau cast
             System.out.printf("[Parser] %s lance %s%n", casterName, spellName);
             return;
         }
@@ -130,6 +132,13 @@ public class LogProcessor {
         Matcher mIndirect = LogPatterns.DAMAGE_INDIRECT.matcher(line);
         if (mIndirect.find()) {
             handleIndirectDamage(mIndirect, tsNow);
+            return;
+        }
+
+        // --- PA regagnés ---
+        Matcher mPA = LogPatterns.PA_REGAIN.matcher(line);
+        if (mPA.find()) {
+            handlePARegain(mPA);
             return;
         }
     }
@@ -160,9 +169,17 @@ public class LogProcessor {
                 new Ability("Inconnu", "Sort direct", element, DamageSourceType.DIRECT)
         );
         ability.setElement(element);
-        CombatEvent event = new CombatEvent(LocalDateTime.now(), caster, target, ability, EventType.DAMAGE, value, element);
+
+        // Récupérer le baseCost et les PA regagnés
+        Integer baseCost = getBaseCostForCaster(caster);
+        int paRegained = paRegainedByCaster.getOrDefault(caster.getName(), 0);
+
+        CombatEvent event = new CombatEvent(LocalDateTime.now(), caster, target, ability,
+                EventType.DAMAGE, value, element, baseCost, paRegained);
         process(event);
-        System.out.printf("[Parser] DIRECT: %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
+        System.out.printf("[Parser] DIRECT: %s → %s %d (%s) [PA: %s - %d = %s]%n",
+                caster.getName(), target.getName(), value, element,
+                baseCost, paRegained, baseCost != null ? (baseCost - paRegained) : "?");
     }
 
     private void handleIndirectDamage(Matcher m, long tsNow) {
@@ -226,8 +243,12 @@ public class LogProcessor {
         Ability ability = new Ability(effectName, "Effet indirect", element,
                 isTrueIndirect ? DamageSourceType.INDIRECT : DamageSourceType.DIRECT);
 
+        // Récupérer le baseCost et les PA regagnés
+        Integer baseCost = getBaseCostForCaster(caster);
+        int paRegained = paRegainedByCaster.getOrDefault(caster.getName(), 0);
+
         CombatEvent event = new CombatEvent(LocalDateTime.now(), caster, target, ability,
-                EventType.DAMAGE, value, element);
+                EventType.DAMAGE, value, element, baseCost, paRegained);
 
         process(event);
     }
@@ -397,6 +418,37 @@ public class LogProcessor {
         } catch (Exception e) {
             return System.currentTimeMillis();
         }
+    }
+
+    /**
+     * Gère les PA regagnés détectés dans les logs
+     */
+    private void handlePARegain(Matcher m) {
+        String playerName = m.group(1).trim();
+        int paAmount = Integer.parseInt(m.group(2).trim());
+
+        // Ajouter les PA regagnés au compteur du joueur
+        paRegainedByCaster.merge(playerName, paAmount, Integer::sum);
+
+        System.out.printf("[Parser] PA REGAIN: %s +%d PA (total: %d)%n",
+                playerName, paAmount, paRegainedByCaster.get(playerName));
+    }
+
+    /**
+     * Récupère le baseCost du sort actuellement lancé par le caster
+     */
+    private Integer getBaseCostForCaster(Fighter caster) {
+        if (caster == null) return null;
+
+        Ability ability = lastAbilityByCaster.get(caster.getName());
+        if (ability == null) return null;
+
+        // Pour l'instant, on ne peut pas déterminer la classe du joueur
+        // donc on passe null et SpellCostProvider cherchera dans toutes les classes
+        String className = null;
+
+        // Utiliser SpellCostProvider pour obtenir le coût
+        return com.wakfu.data.SpellCostProvider.getCostFor(className, ability.getName());
     }
 
     private void resetRoundTracking() {

@@ -145,7 +145,7 @@ public class UIUtils {
      */
     public static ColumnConstraints[] createBreakdownColumns(double spellNameWidth) {
         return new ColumnConstraints[] {
-            createFlexibleColumn(spellNameWidth, 80, 300),  // Spell name
+            createFlexibleColumn(spellNameWidth, 40, 300),  // Spell name (minWidth réduit de 80 -> 40)
             createGrowColumn(),                              // Bar
             createFixedColumn(50),                           // Damage
             createFixedColumn(60),                           // Dmg/PA
@@ -228,5 +228,46 @@ public class UIUtils {
     public static StackPane createProgressBar(double pct, Color color) {
         return createProgressBar(pct, color, 12, 6);
     }
-}
 
+    /**
+     * Crée une barre de progression SANS track (fond) - pour les breakdown panes.
+     * Affiche uniquement le fill sans fond visible.
+     * @param pct Pourcentage (0..1)
+     * @param color Couleur du fill
+     * @param height Hauteur de la barre
+     * @param radius Rayon des coins
+     * @return StackPane contenant uniquement le fill
+     */
+    public static StackPane createProgressBarNoTrack(double pct, Color color, double height, double radius) {
+        double pctClamped = clamp01(pct);
+
+        Region fill = new Region();
+        fill.setPrefHeight(height);
+        fill.setBackground(createBackground(color, radius));
+        fill.setMinWidth(0);
+
+        StackPane barPane = new StackPane(fill);
+        barPane.setMinWidth(0);
+        barPane.setMaxWidth(Double.MAX_VALUE);
+
+        fill.prefWidthProperty().bind(barPane.widthProperty().multiply(pctClamped));
+        fill.maxWidthProperty().bind(barPane.widthProperty().multiply(pctClamped));
+        StackPane.setAlignment(fill, javafx.geometry.Pos.CENTER_LEFT);
+
+        return barPane;
+    }
+
+    /**
+     * Crée une barre sans track avec couleur d'élément.
+     */
+    public static StackPane createProgressBarNoTrack(double pct, Element element, double height, double radius) {
+        return createProgressBarNoTrack(pct, getElementColor(element), height, radius);
+    }
+
+    /**
+     * Crée une barre sans track avec paramètres par défaut (hauteur 12, radius 6).
+     */
+    public static StackPane createProgressBarNoTrack(double pct, Color color) {
+        return createProgressBarNoTrack(pct, color, 12, 6);
+    }
+}

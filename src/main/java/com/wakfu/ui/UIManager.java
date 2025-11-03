@@ -232,14 +232,29 @@ public class UIManager {
             playersContainer.getChildren().clear();
 
             java.util.concurrent.atomic.AtomicInteger row = new java.util.concurrent.atomic.AtomicInteger(0);
+
             // Sort players by damage descending
-            statsList.stream()
+            var sortedPlayers = statsList.stream()
                     .sorted((a, b) -> Integer.compare(b.getTotalDamage(), a.getTotalDamage()))
-                    .forEach(ps -> {
+                    .toList();
+
+            // Find max damage among players only
+            int maxDamage = sortedPlayers.stream()
+                    .filter(ps -> ps.getPlayer().getType() == Fighter.FighterType.PLAYER)
+                    .mapToInt(PlayerStats::getTotalDamage)
+                    .max()
+                    .orElse(1);
+
+            if (maxDamage == 0) maxDamage = 1;
+
+            final int finalMaxDamage = maxDamage;
+
+            sortedPlayers.forEach(ps -> {
                  var p = ps.getPlayer();
                  if (p.getType() == Fighter.FighterType.PLAYER) {
                      int dmg = ps.getTotalDamage();
-                     double pct = totalDamage > 0 ? (double) dmg / totalDamage : 0.0;
+                     // pct is now relative to the max damage (highest player gets 100%)
+                     double pct = (double) dmg / finalMaxDamage;
 
                     // assign a consistent random color for this player in the session
                     String playerKey = p.getName();
