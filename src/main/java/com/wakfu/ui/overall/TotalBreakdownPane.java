@@ -58,7 +58,7 @@ public class TotalBreakdownPane {
         container.setAlignment(Pos.TOP_LEFT);
         container.setBackground(Background.EMPTY);
 
-        Label title = new Label("Repartition des degats - " + playerName);
+        Label title = new Label("Répartition des degats - " + playerName);
         title.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
         container.getChildren().add(title);
 

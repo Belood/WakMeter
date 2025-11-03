@@ -45,6 +45,7 @@ public class UIManager {
 
     // Track the currently displayed breakdown panel
     private PlayerStats currentSelectedPlayer = null;
+    private Integer currentSelectedRound = null; // Track selected round in Tour mode
 
     // Current display mode
     private DisplayMode currentMode = DisplayMode.TOTAL;
@@ -212,6 +213,7 @@ public class UIManager {
             // Clear breakdown pane
             mainUI.setBreakdownPanel(null);
             currentSelectedPlayer = null;
+            currentSelectedRound = null;
             // Clear turn details if in Tour mode
             if (turnDetailsUI != null) {
                 turnDetailsUI.clear();
@@ -268,22 +270,58 @@ public class UIManager {
         var statsList = model.getStatsByPlayer().values().stream().toList();
         // store last model for external UIs
         this.lastModel = model;
-        displayPlayerStats(statsList, totalDamage);
 
-        // Auto-refresh the breakdown pane if a player is currently selected
-        if (currentSelectedPlayer != null) {
-            // Find the updated PlayerStats for the selected player in the new model
-            var updatedStats = statsList.stream()
-                    .filter(ps -> ps.getPlayer().getName().equals(currentSelectedPlayer.getPlayer().getName()))
-                    .findFirst();
+        // Refresh display based on current mode
+        if (currentMode == DisplayMode.TOTAL) {
+            displayPlayerStats(statsList, totalDamage);
 
-            if (updatedStats.isPresent()) {
-                currentSelectedPlayer = updatedStats.get();
-                showBreakdownInRightPane(currentSelectedPlayer);
-            } else {
-                // Player no longer in model, clear the breakdown
-                mainUI.setBreakdownPanel(null);
-                currentSelectedPlayer = null;
+            // Auto-refresh the breakdown pane if a player is currently selected
+            if (currentSelectedPlayer != null) {
+                // Find the updated PlayerStats for the selected player in the new model
+                var updatedStats = statsList.stream()
+                        .filter(ps -> ps.getPlayer().getName().equals(currentSelectedPlayer.getPlayer().getName()))
+                        .findFirst();
+
+                if (updatedStats.isPresent()) {
+                    currentSelectedPlayer = updatedStats.get();
+                    showBreakdownInRightPane(currentSelectedPlayer);
+                } else {
+                    // Player no longer in model, clear the breakdown
+                    mainUI.setBreakdownPanel(null);
+                    currentSelectedPlayer = null;
+                }
+            }
+        } else if (currentMode == DisplayMode.TOUR) {
+            // Update TurnDetailsPane with new model
+            if (turnDetailsUI != null) {
+                turnDetailsUI.update(model, playerColors);
+            }
+
+            // Auto-refresh the turn breakdown if one is selected
+            if (currentSelectedPlayer != null && currentSelectedRound != null) {
+                // Find the updated PlayerStats for the selected round/player
+                var roundModel = model.getRounds().stream()
+                        .filter(r -> r.getRoundNumber() == currentSelectedRound)
+                        .findFirst();
+
+                if (roundModel.isPresent()) {
+                    var updatedStats = roundModel.get().getPlayerStatsByRound()
+                            .get(currentSelectedPlayer.getPlayer().getName());
+                    if (updatedStats != null) {
+                        currentSelectedPlayer = updatedStats;
+                        showTurnBreakdownInRightPane(currentSelectedRound, currentSelectedPlayer);
+                    } else {
+                        // Player no longer in round, clear the breakdown
+                        mainUI.setBreakdownPanel(null);
+                        currentSelectedPlayer = null;
+                        currentSelectedRound = null;
+                    }
+                } else {
+                    // Round no longer exists, clear the breakdown
+                    mainUI.setBreakdownPanel(null);
+                    currentSelectedPlayer = null;
+                    currentSelectedRound = null;
+                }
             }
         }
     }
@@ -304,6 +342,7 @@ public class UIManager {
              try {
                 // Remember the selected player for auto-refresh on model updates
                 currentSelectedPlayer = stats;
+                currentSelectedRound = null; // Clear round selection when showing total breakdown
                 Pane panel = TotalBreakdownPane.buildPanel(stats);
                 mainUI.setBreakdownPanel(panel);
              } catch (Exception e) {
@@ -369,6 +408,9 @@ public class UIManager {
     private void showTurnBreakdownInRightPane(int roundNumber, PlayerStats stats) {
         Platform.runLater(() -> {
             try {
+                // Remember the selected player and round for auto-refresh on model updates
+                currentSelectedPlayer = stats;
+                currentSelectedRound = roundNumber;
                 Pane panel = TurnBreakdownPane.buildPanel(roundNumber, stats);
                 mainUI.setBreakdownPanel(panel);
             } catch (Exception e) {
