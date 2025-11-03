@@ -1,8 +1,8 @@
 package com.wakfu.ui.overall;
 
 import com.wakfu.domain.actors.Player;
-
 import com.wakfu.domain.model.PlayerStats;
+import com.wakfu.ui.util.UIUtils;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.control.Button;
@@ -33,8 +33,8 @@ public class TotalDamagePane {
 
     public TotalDamagePane(PlayerStats stats, double percentage, Color barColor, Color trackColor, double damagePercentage, Consumer<PlayerStats> onBreakdownRequested) {
         this.stats = stats;
-        this.pct = clamp01(percentage);
-        this.damagePercentage = clamp01(damagePercentage);
+        this.pct = UIUtils.clamp01(percentage);
+        this.damagePercentage = UIUtils.clamp01(damagePercentage);
         this.barColor = barColor == null ? Color.web("#4b8cff") : barColor;
         this.trackColor = trackColor == null ? Color.web("#4b8cff") : trackColor;
         this.onBreakdown = onBreakdownRequested;
@@ -47,13 +47,10 @@ public class TotalDamagePane {
         GridPane row = new GridPane();
         row.setHgap(5);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.getColumnConstraints().addAll(List.of(
-                fixed(90),                 // Name
-                grow(),                     // Bar container
-                fixed(60),                  // Value
-                fixed(60),                  // %
-                fixed(48)                   // 🔍
-        ));
+
+        // Use UIUtils to create column constraints
+        ColumnConstraints[] columns = UIUtils.createPlayerDamageColumns();
+        row.getColumnConstraints().addAll(List.of(columns));
 
         // [Name]
         Label name = labelLeft(p.getName(), 90);
@@ -139,18 +136,6 @@ public class TotalDamagePane {
 
     /* ---------- Helpers compacts ---------- */
 
-    private static ColumnConstraints fixed(double w) {
-        ColumnConstraints c = new ColumnConstraints(w);
-        c.setMinWidth(w); c.setMaxWidth(w);
-        return c;
-    }
-
-    private static ColumnConstraints grow() {
-        ColumnConstraints c = new ColumnConstraints();
-        c.setHgrow(Priority.ALWAYS);
-        return c;
-    }
-
     private static Label labelLeft(String text, double w) {
         Label l = new Label(text);
         l.setPrefWidth(w);
@@ -166,8 +151,6 @@ public class TotalDamagePane {
     }
 
     private static Background bg(Color c, double radius) {
-        return new Background(new BackgroundFill(c, new CornerRadii(radius), Insets.EMPTY));
+        return UIUtils.createBackground(c, radius);
     }
-
-    private static double clamp01(double v) { return Math.max(0, Math.min(1, v)); }
 }

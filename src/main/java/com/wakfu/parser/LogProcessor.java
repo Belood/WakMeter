@@ -30,8 +30,16 @@ public class LogProcessor {
     private final Set<String> playersThisRound = new HashSet<>(); // joueurs ayant déjà joué ce round
     private String firstPlayerThisRound = null;   // identifie le joueur qui ouvre le round
 
+    // Tracking pour détecter un tour de table complet
+    private final List<String> turnOrderThisRound = new ArrayList<>(); // ordre des joueurs dans le round
+    private long lastTurnStartTime = 0;           // timestamp du dernier début de tour
+    private long lastActivityTime = 0;            // timestamp de la dernière activité (cast/dégâts)
+
     private static final long RECENT_CAST_WINDOW_MS = 10_000;
     private static final long STICKY_CAST_WINDOW_MS = 20_000;
+    private static final long ACTIVITY_TIMEOUT_MS = 120_000; // 120s sans activité = timeout
+    private static final long MIN_ACTIVITY_WINDOW_MS = 5_000; // Au minimum 5s entre deux rounds
+    private static final int MIN_PLAYERS_FOR_ROUND = 2;  // Minimum de joueurs différents pour valider un round
 
     private static final Pattern TIME_PREFIX =
             Pattern.compile("^[A-Z]+\\s(\\d{2}:\\d{2}:\\d{2}),(\\d{3})");
@@ -61,6 +69,7 @@ public class LogProcessor {
             inCombat = true;
             fighters.clear();
             lastAbilityByCaster.clear();
+            resetRoundTracking();
             // utilise la chaîne: processLine -> process(LogEvent) -> EventProcessor
             process(new BattleEvent(LocalDateTime.now(), BattleEvent.BattleState.START));
             System.out.println("[Parser] >>> Combat started <<<");
@@ -228,10 +237,14 @@ public class LogProcessor {
 
     // === Gestion du tour ===
     private void detectTurnStart(String playerName) {
+        long currentTime = System.currentTimeMillis();
+        lastActivityTime = currentTime; // Mettre à jour l'activité (cast ou dégâts)
+
         if (currentPlayerTurn == null || !currentPlayerTurn.equals(playerName)) {
             // --- Round Start ---
             if (playersThisRound.isEmpty()) {
                 firstPlayerThisRound = playerName;
+                turnOrderThisRound.clear();
                 process(new BattleEvent(LocalDateTime.now(),
                         BattleEvent.BattleState.ROUND_START, roundNumber));
                 System.out.println("[Round] >>> ROUND " + roundNumber + " START <<<");
@@ -247,23 +260,100 @@ public class LogProcessor {
             // --- Nouveau tour ---
             currentPlayerTurn = playerName;
             playersThisRound.add(playerName);
+            turnOrderThisRound.add(playerName);
+            lastTurnStartTime = currentTime;
+
             process(new BattleEvent(LocalDateTime.now(),
                     BattleEvent.BattleState.START_TURN, playerName));
             System.out.println("[Turn] >>> " + playerName + " START TURN <<<");
 
-            // --- Fin de round ---
+            // --- Détection de fin de round basée sur les patterns ---
+            boolean shouldEndRound = false;
+            String endReason = "";
+
+            // Cas 1: Le premier joueur rejoue ET au moins 2 joueurs ont joué
+            // → Tour de table classique complet
             if (firstPlayerThisRound != null
                     && playerName.equals(firstPlayerThisRound)
-                    && playersThisRound.size() > 1) {
+                    && playersThisRound.size() >= MIN_PLAYERS_FOR_ROUND) {
+                shouldEndRound = true;
+                endReason = "first player returned";
+            }
+
+            // Cas 2: Le même joueur joue 2 fois de suite après qu'au moins 2 joueurs aient joué
+            // (indique que les autres joueurs ont probablement passé/sont morts)
+            else if (turnOrderThisRound.size() >= 2) {
+                int lastIdx = turnOrderThisRound.size() - 1;
+                String lastPlayer = turnOrderThisRound.get(lastIdx);
+                String secondLastPlayer = turnOrderThisRound.get(lastIdx - 1);
+
+                if (lastPlayer.equals(secondLastPlayer) && playersThisRound.size() >= MIN_PLAYERS_FOR_ROUND) {
+                    shouldEndRound = true;
+                    endReason = "player played twice consecutively";
+                }
+            }
+
+            // Cas 3: Tous les joueurs actifs ont joué (basé sur le nombre de PLAYER dans fighters)
+            else if (playersThisRound.size() >= countActivePlayers() && countActivePlayers() >= MIN_PLAYERS_FOR_ROUND) {
+                shouldEndRound = true;
+                endReason = "all active players have played";
+            }
+
+            if (shouldEndRound) {
                 process(new BattleEvent(LocalDateTime.now(),
                         BattleEvent.BattleState.ROUND_END, roundNumber));
-                System.out.println("[Round] <<< ROUND " + roundNumber + " END <<<");
+                System.out.println("[Round] <<< ROUND " + roundNumber + " END (" + endReason + ") <<<");
+                System.out.println("[Round] Players who played: " + playersThisRound);
+                System.out.println("[Round] Turn order: " + turnOrderThisRound);
 
                 roundNumber++;
                 playersThisRound.clear();
+                turnOrderThisRound.clear();
                 firstPlayerThisRound = playerName;
             }
+        } else {
+            // Même joueur joue plusieurs actions consécutives
         }
+    }
+
+    /**
+     * Détecte si un timeout d'activité s'est produit (pas de cast ou dégâts depuis longtemps).
+     * Utile pour détecter un problème de parsing ou un combat figé.
+     * Appelé périodiquement depuis le processeur de logs pour nettoyer les états bloqués.
+     */
+    public void checkActivityTimeout() {
+        long currentTime = System.currentTimeMillis();
+
+        // Si aucune activité depuis ACTIVITY_TIMEOUT_MS et nous sommes en combat
+        if (inCombat && lastActivityTime > 0 && currentTime - lastActivityTime > ACTIVITY_TIMEOUT_MS) {
+            System.out.println("[Round] ⚠ ACTIVITY TIMEOUT: No activity for " +
+                    (ACTIVITY_TIMEOUT_MS / 1000) + " seconds");
+
+            // Si nous avons un round en cours avec au moins 2 joueurs, le clore
+            if (playersThisRound.size() >= MIN_PLAYERS_FOR_ROUND && firstPlayerThisRound != null) {
+                process(new BattleEvent(LocalDateTime.now(),
+                        BattleEvent.BattleState.ROUND_END, roundNumber));
+                System.out.println("[Round] <<< ROUND " + roundNumber + " END (activity timeout) <<<");
+                System.out.println("[Round] Players who played: " + playersThisRound);
+
+                roundNumber++;
+                playersThisRound.clear();
+                turnOrderThisRound.clear();
+                firstPlayerThisRound = null;
+            }
+
+            // Réinitialiser le timestamp pour éviter les timeouts répétitifs
+            lastActivityTime = currentTime;
+        }
+    }
+
+    /**
+     * Compte le nombre de joueurs actifs (PLAYER) dans le combat
+     */
+    private int countActivePlayers() {
+        return (int) fighters.values().stream()
+                .filter(f -> f.getType() == Fighter.FighterType.PLAYER)
+                .count();
     }
 
     // === Utilitaires ===
@@ -313,6 +403,9 @@ public class LogProcessor {
         currentPlayerTurn = null;
         firstPlayerThisRound = null;
         playersThisRound.clear();
+        turnOrderThisRound.clear();
         roundNumber = 1;
+        lastTurnStartTime = 0;
+        lastActivityTime = 0;
     }
 }

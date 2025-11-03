@@ -104,6 +104,18 @@ public class TurnDetailsPane {
         return content;
     }
 
+    /**
+     * Clear all content (used on reset)
+     */
+    public void clear() {
+        Platform.runLater(() -> {
+            content.getChildren().clear();
+            playerFilter.getItems().clear();
+            playerFilter.setValue(null);
+            model = null;
+        });
+    }
+
     private void refreshContent() {
         Platform.runLater(() -> {
             content.getChildren().clear();

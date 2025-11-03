@@ -51,12 +51,40 @@
     "Fourberie": 3,
     "Coup Sournois": 3,
     "Traumatisme": 3
-
   },
-  "Cra":{
-
+  "Cra": {
+    "Flèche chercheuse": 2,
+    "Flèche de recul": 3,
+    "Flèche tempête": 3,
+    "Flèche harcelante": 4,
+    "Flèche statique": 5,
+    "Flèche fulminante": 3,
+    "Flèche d'immolation": 2,
+    "Flèche enflammée": 4,
+    "Flèche explosive": 5,
+    "Flèche cinglante": 3,
+    "Pluie de flèches": 4,
+    "Flèche perçante": 5,
+    "Flèche destructrice": 6,
+    "Flèche lumineuse": 6
   },
-  "Sacrieur":{},
+  "Sacrieur":{
+    "Sang pour sang": 3,
+    "Furie sanguinaire": 2,
+    "Sang brûlant": 4,
+    "Cage de sang": 4,
+    "Punition": 0,
+    "Aversion": 4,
+    "Projection": 2,
+    "Assaut": 1,
+    "Tempête spirituelle": 3,
+    "Fulgurance": 3,
+    "Pied rocheux": 3,
+    "Poing tatoué agrippant": 2,
+    "Démence": 2,
+    "Colonnades": 5,
+    "Fracasse": 4
+  },
   "Féca": {},
   "Osamodas": {},
   "Enutrof": {},

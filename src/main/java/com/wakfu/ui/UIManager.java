@@ -212,6 +212,10 @@ public class UIManager {
             // Clear breakdown pane
             mainUI.setBreakdownPanel(null);
             currentSelectedPlayer = null;
+            // Clear turn details if in Tour mode
+            if (turnDetailsUI != null) {
+                turnDetailsUI.clear();
+            }
          });
      }
 
