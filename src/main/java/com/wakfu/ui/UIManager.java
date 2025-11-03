@@ -238,7 +238,7 @@ public class UIManager {
                     .sorted((a, b) -> Integer.compare(b.getTotalDamage(), a.getTotalDamage()))
                     .toList();
 
-            // Find max damage among players only
+            // Find max damage among players only (for bar width scaling)
             int maxDamage = sortedPlayers.stream()
                     .filter(ps -> ps.getPlayer().getType() == Fighter.FighterType.PLAYER)
                     .mapToInt(PlayerStats::getTotalDamage)
@@ -248,13 +248,16 @@ public class UIManager {
             if (maxDamage == 0) maxDamage = 1;
 
             final int finalMaxDamage = maxDamage;
+            final int finalTotalDamage = totalDamage > 0 ? totalDamage : 1;
 
             sortedPlayers.forEach(ps -> {
                  var p = ps.getPlayer();
                  if (p.getType() == Fighter.FighterType.PLAYER) {
                      int dmg = ps.getTotalDamage();
-                     // pct is now relative to the max damage (highest player gets 100%)
+                     // pct is relative to the max damage (for bar width scaling - highest player gets 100%)
                      double pct = (double) dmg / finalMaxDamage;
+                     // damagePercentage is relative to total combat damage (for percentage display)
+                     double damagePercentage = (double) dmg / finalTotalDamage;
 
                     // assign a consistent random color for this player in the session
                     String playerKey = p.getName();
@@ -264,8 +267,8 @@ public class UIManager {
                         return javafx.scene.paint.Color.hsb(hue, 0.65, 0.75);
                     });
 
-                    // pass a callback so breakdown opens/updates in the right pane
-                    TotalDamagePane playerUI = new TotalDamagePane(ps, pct, c, this::showBreakdownInRightPane);
+                    // pass both pct (for bar width) and damagePercentage (for % display)
+                    TotalDamagePane playerUI = new TotalDamagePane(ps, pct, c, damagePercentage, this::showBreakdownInRightPane);
                     HBox rowBox = playerUI.render();
                     HBox.setHgrow(rowBox, Priority.ALWAYS);
                     playersContainer.getChildren().add(rowBox);

@@ -427,6 +427,17 @@ public class LogProcessor {
         String playerName = m.group(1).trim();
         int paAmount = Integer.parseInt(m.group(2).trim());
 
+        // Vérifier si un sort a été récemment lancé par ce joueur
+        Long lastCast = lastCastTime.get(playerName);
+        long currentTime = System.currentTimeMillis();
+
+        // Ignorer les regains de PA qui ne sont pas liés à un sort récent
+        if (lastCast == null || (currentTime - lastCast) > RECENT_CAST_WINDOW_MS) {
+            System.out.printf("[Parser] PA REGAIN IGNORED (not spell-related): %s +%d PA%n",
+                    playerName, paAmount);
+            return;
+        }
+
         // Ajouter les PA regagnés au compteur du joueur
         paRegainedByCaster.merge(playerName, paAmount, Integer::sum);
 

@@ -104,8 +104,8 @@ public class TotalDamagePane {
         // [Value]
         Label value = labelRight(String.format("%,d", stats.getTotalDamage()), 90);
 
-        // [%]
-        Label percent = labelRight(String.format("%.1f%%", pct * 100), 70);
+        // [%] - Utilise damagePercentage au lieu de pct
+        Label percent = labelRight(String.format("%.1f%%", damagePercentage * 100), 70);
 
         // [🔍]
         Button details = new Button("🔍");

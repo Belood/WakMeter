@@ -9,6 +9,8 @@ import javafx.geometry.Pos;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
+
 import java.util.Map;
 /**
  * TurnBreakdownPane renders damage breakdown statistics for a specific round.
@@ -44,6 +46,11 @@ public class TurnBreakdownPane {
         }
         int total = spells.values().stream().mapToInt(SpellStats::getTotal).sum();
         if (total == 0) total = 1;
+        // Trouver le sort avec le plus de dégâts
+        int maxDamage = spells.values().stream()
+            .mapToInt(SpellStats::getTotal)
+            .max()
+            .orElse(1);
         VBox container = new VBox(10);
         container.setPadding(new Insets(15));
         container.setAlignment(Pos.TOP_LEFT);
@@ -55,22 +62,18 @@ public class TurnBreakdownPane {
         double spellNameColumnWidth = UIUtils.calculateDynamicColumnWidth(spells.keySet());
         // Header grid matching TotalBreakdownPane
         GridPane headerGrid = new GridPane();
-        headerGrid.setHgap(4);
+        headerGrid.setHgap(2);
         headerGrid.setAlignment(Pos.CENTER_LEFT);
         // Use UIUtils to create column constraints
         ColumnConstraints[] headerColumns = UIUtils.createBreakdownColumns(spellNameColumnWidth);
         headerGrid.getColumnConstraints().addAll(java.util.Arrays.asList(headerColumns));
         Label hName = new Label("Sort");
-        hName.setPrefWidth(60);
         Label hBar = new Label("");
         hBar.setBackground(Background.EMPTY);
         GridPane.setHgrow(hBar, Priority.ALWAYS);
         Label hDmg = new Label("Degats");
-        hDmg.setPrefWidth(50);
         Label hDmgPerPA = new Label("Degat/PA");
-        hDmgPerPA.setPrefWidth(60);
         Label hPct = new Label("%");
-        hPct.setPrefWidth(40);
         headerGrid.add(hName, 0, 0);
         headerGrid.add(hBar, 1, 0);
         headerGrid.add(hDmg, 2, 0);
@@ -81,7 +84,7 @@ public class TurnBreakdownPane {
         VBox list = new VBox(6);
         list.setBackground(Background.EMPTY);
         final int finalTotal = total;
-        final String playerClassKey = null;
+        final int finalMaxDamage = maxDamage;
         // Sort spells by damage descending
         spells.values().stream()
             .sorted((a, b) -> Integer.compare(b.getTotal(), a.getTotal()))
@@ -89,21 +92,44 @@ public class TurnBreakdownPane {
                 String spellName = sp.getName();
                 int dmg = sp.getTotal();
                 double pct = (double) dmg / finalTotal;
+                double barPct = (double) dmg / finalMaxDamage; // Proportionnel au max
                 // Get dominant element using UIUtils
                 Element element = UIUtils.getDominantElement(sp.getDamageByElement());
                 // Create row grid matching TotalBreakdownPane
                 GridPane rowGrid = new GridPane();
-                rowGrid.setHgap(4);
+                rowGrid.setHgap(2);
                 // Use UIUtils to create column constraints
                 ColumnConstraints[] rowColumns = UIUtils.createBreakdownColumns(spellNameColumnWidth);
                 rowGrid.getColumnConstraints().addAll(java.util.Arrays.asList(rowColumns));
                 Label spellLabel = new Label(spellName);
-                spellLabel.setPrefWidth(spellNameColumnWidth);
-                // Create progress bar using UIUtils
-                StackPane barPane = UIUtils.createProgressBarNoTrack(pct, element, 12, 6);
-                GridPane.setHgrow(barPane, Priority.ALWAYS);
+                spellLabel.setAlignment(Pos.CENTER_LEFT);
+                // Bar container avec largeur proportionnelle
+                HBox barContainer = new HBox();
+                barContainer.setMinWidth(0);
+                barContainer.setMaxWidth(Double.MAX_VALUE);
+                barContainer.setAlignment(Pos.CENTER_LEFT);
+                StackPane barPane = new StackPane();
+                barPane.setMinWidth(0);
+                barPane.setMaxWidth(Double.MAX_VALUE);
+                barPane.setPrefHeight(12);
+                Region track = new Region();
+                track.setMinWidth(0);
+                track.setPrefHeight(12);
+                track.setBackground(UIUtils.createBackground(Color.rgb(0, 0, 0, 0.10), 6));
+                Region fill = new Region();
+                fill.setMinWidth(0);
+                fill.setPrefHeight(12);
+                fill.setBackground(UIUtils.createBackground(UIUtils.getElementColor(element), 6));
+                StackPane.setAlignment(fill, Pos.CENTER_LEFT);
+                track.prefWidthProperty().bind(barPane.widthProperty());
+                fill.prefWidthProperty().bind(track.widthProperty());
+                barPane.getChildren().addAll(track, fill);
+                HBox.setHgrow(barPane, Priority.NEVER);
+                barPane.prefWidthProperty().bind(barContainer.widthProperty().multiply(barPct));
+                barContainer.getChildren().add(barPane);
+                GridPane.setHgrow(barContainer, Priority.ALWAYS);
                 Label dmgLabel = new Label(String.format("%,d", dmg));
-                dmgLabel.setPrefWidth(50);
+                dmgLabel.setAlignment(Pos.CENTER_RIGHT);
                 // Calculate Degat/PA using effectivePACost
                 String dmgPerPaText = "-";
                 Integer effectiveCost = sp.getEffectivePACost();
@@ -111,11 +137,11 @@ public class TurnBreakdownPane {
                     dmgPerPaText = String.format("%.2f", (double) dmg / effectiveCost);
                 }
                 Label dmgPerPaLabel = new Label(dmgPerPaText);
-                dmgPerPaLabel.setPrefWidth(70);
+                dmgPerPaLabel.setAlignment(Pos.CENTER_RIGHT);
                 Label pctLabel = new Label(String.format("%.1f%%", pct * 100));
-                pctLabel.setPrefWidth(60);
+                pctLabel.setAlignment(Pos.CENTER_RIGHT);
                 rowGrid.add(spellLabel, 0, 0);
-                rowGrid.add(barPane, 1, 0);
+                rowGrid.add(barContainer, 1, 0);
                 rowGrid.add(dmgLabel, 2, 0);
                 rowGrid.add(dmgPerPaLabel, 3, 0);
                 rowGrid.add(pctLabel, 4, 0);

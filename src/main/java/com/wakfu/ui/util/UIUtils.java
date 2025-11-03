@@ -140,16 +140,16 @@ public class UIUtils {
 
     /**
      * Configuration standard des colonnes pour le breakdown pane.
-     * @param spellNameWidth Largeur dynamique pour la colonne du nom du sort
-     * @return Array de ColumnConstraints [spellName, bar, damage, dmgPerPA, percent]
+     * @param spellNameWidth Largeur fixe calculée pour la colonne du nom du sort
+     * @return Array de ColumnConstraints [spellName (fixed), bar (grow), damage, dmgPerPA, percent]
      */
     public static ColumnConstraints[] createBreakdownColumns(double spellNameWidth) {
         return new ColumnConstraints[] {
-            createFlexibleColumn(spellNameWidth, 40, 300),  // Spell name (minWidth réduit de 80 -> 40)
-            createGrowColumn(),                              // Bar
-            createFixedColumn(50),                           // Damage
-            createFixedColumn(60),                           // Dmg/PA
-            createFixedColumn(40)                            // Percent
+            createFixedColumn(spellNameWidth),              // Spell name (fixed width)
+            createGrowColumn(),                             // Bar
+            createFixedColumn(50),                          // Damage
+            createFixedColumn(60),                          // Dmg/PA
+            createFixedColumn(40)                           // Percent
         };
     }
 
