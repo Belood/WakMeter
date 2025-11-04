@@ -40,6 +40,10 @@ public class WakfuMeterApp extends Application {
         uiManager.setHistoryChecked(historyEnabled);
         eventProcessor.setHistoryEnabled(historyEnabled);
 
+        // Restaurer le parametre autoReset
+        boolean autoResetEnabled = UserSettings.loadAutoReset().orElse(true);
+        uiManager.setAutoResetChecked(autoResetEnabled);
+
         // Callback pour démarrer le parser quand un dossier est choisi
         uiManager.setOnLogFolderSelected(path -> {
             try {

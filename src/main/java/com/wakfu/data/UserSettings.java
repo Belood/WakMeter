@@ -60,8 +60,19 @@ public class UserSettings {
         return saveSettings(s);
     }
 
+    public static Optional<Boolean> loadAutoReset() {
+        return loadSettings().map(s -> s.autoReset == null ? Boolean.TRUE : s.autoReset);
+    }
+
+    public static boolean saveAutoReset(boolean enabled) {
+        Settings s = loadSettings().orElseGet(Settings::new);
+        s.autoReset = enabled;
+        return saveSettings(s);
+    }
+
     public static class Settings {
         public String logFolder;
         public Boolean historyEnabled = Boolean.FALSE;
+        public Boolean autoReset = Boolean.TRUE;
     }
 }

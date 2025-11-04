@@ -108,6 +108,8 @@ public class UIManager {
 
     public void setHistoryChecked(boolean value) { historyCheck.setSelected(value); }
 
+    public void setAutoResetChecked(boolean value) { autoResetCheck.setSelected(value); }
+
     private void setupUI() {
         // Setup header buttons with callbacks
         setupHeaderControls();
@@ -153,6 +155,8 @@ public class UIManager {
 
         autoResetCheck.selectedProperty().addListener((obs, oldVal, newVal) -> {
             System.identityHashCode(obs); System.identityHashCode(oldVal);
+            // Sauvegarder la préférence
+            UserSettings.saveAutoReset(newVal);
             if (onAutoResetChanged != null) {
                 try { onAutoResetChanged.accept(newVal); } catch (Exception ignored) {}
             }

@@ -46,8 +46,18 @@ public final class LogPatterns {
             "(?U)\\[Information \\(combat\\)\\]\\s+([^:]+):\\s*([\\d\\s\\p{Zs}]+)\\s*Armure\\s*\\(([^)]+)\\)"
     );
 
-    /** Regain de PA (avec signe optionnel) */
-    public static final Pattern PA_REGAIN = Pattern.compile(
-            "(?U)\\[Information \\(combat\\)\\]\\s+([^:]+):\\s*([+]?)\\s*([\\d]+)\\s*PA(?:\\s*\\([^)]*\\))?\\s*$"
+    /** Joueur KO */
+    public static final Pattern PLAYER_KO = Pattern.compile(
+            "\\[Information \\(combat\\)\\]\\s+([^\\s]+)\\s+est KO"
+    );
+
+    /** Joueur ressuscité */
+    public static final Pattern PLAYER_REVIVED = Pattern.compile(
+            "\\[Information \\(combat\\)\\]\\s+([^\\s]+)\\s+est ressuscité"
+    );
+
+    /** Fin de tour (secondes reportées) */
+    public static final Pattern TURN_END = Pattern.compile(
+            "\\[Information \\(combat\\)\\]\\s+(\\d+)\\s+secondes? reportées? pour le tour suivant"
     );
 }

@@ -25,12 +25,10 @@ public class LogProcessor {
     private final Map<String, Fighter> fighters = new HashMap<>();
     private final Map<String, Ability> lastAbilityByCaster = new HashMap<>();
     private final Map<String, Long> lastCastTime = new HashMap<>();
-    // PA regagnés par joueur pour le cast en cours - CUMULE toutes les lignes de PA
-    // (ex: "Drazuria: 1PA (Profit)" + "Drazuria: 1PA" = 2 PA total)
-    private final Map<String, Integer> paRegainedByCaster = new HashMap<>();
     private String currentPlayerTurn = null;      // joueur actuellement actif
     private int roundNumber = 1;                  // numéro du round en cours
     private final Set<String> playersThisRound = new HashSet<>(); // joueurs ayant déjà joué ce round
+    private final Set<String> playersKO = new HashSet<>(); // joueurs KO (ne jouent plus)
     private String firstPlayerThisRound = null;   // identifie le joueur qui ouvre le round
 
     // Tracking pour détecter un tour de table complet
@@ -38,10 +36,8 @@ public class LogProcessor {
     private long lastTurnStartTime = 0;           // timestamp du dernier début de tour
     private long lastActivityTime = 0;            // timestamp de la dernière activité (cast/dégâts)
 
-    private static final long RECENT_CAST_WINDOW_MS = 10_000;
-    private static final long STICKY_CAST_WINDOW_MS = 20_000;
-    private static final long ACTIVITY_TIMEOUT_MS = 120_000; // 120s sans activité = timeout
-    private static final long MIN_ACTIVITY_WINDOW_MS = 5_000; // Au minimum 5s entre deux rounds
+    private static final long RECENT_CAST_WINDOW_MS = 5_000;
+    private static final long STICKY_CAST_WINDOW_MS = 10_000;
     private static final int MIN_PLAYERS_FOR_ROUND = 2;  // Minimum de joueurs différents pour valider un round
 
     private static final Pattern TIME_PREFIX =
@@ -100,11 +96,53 @@ public class LogProcessor {
             return;
         }
 
+        // --- Joueur KO ---
+        Matcher mKO = LogPatterns.PLAYER_KO.matcher(line);
+        if (mKO.find()) {
+            String playerName = mKO.group(1).trim();
+            playersKO.add(playerName);
+            System.out.printf("[Parser] %s est KO (ne jouera plus ce combat)%n", playerName);
+            // Si c'est le joueur actuel qui meurt, terminer son tour
+            if (playerName.equals(currentPlayerTurn)) {
+                System.out.printf("[Parser] Tour de %s terminé (KO)%n", currentPlayerTurn);
+                currentPlayerTurn = null;
+            }
+            return;
+        }
+
+        // --- Joueur ressuscité ---
+        Matcher mRevived = LogPatterns.PLAYER_REVIVED.matcher(line);
+        if (mRevived.find()) {
+            String playerName = mRevived.group(1).trim();
+            if (playersKO.remove(playerName)) {
+                System.out.printf("[Parser] %s est ressuscité (peut rejouer)%n", playerName);
+            }
+            return;
+        }
+
+        // --- Fin de tour explicite (secondes reportées) ---
+        Matcher mTurnEnd = LogPatterns.TURN_END.matcher(line);
+        if (mTurnEnd.find()) {
+            String seconds = mTurnEnd.group(1);
+            if (currentPlayerTurn != null) {
+                System.out.printf("[Parser] Tour de %s terminé (%s secondes reportées)%n", currentPlayerTurn, seconds);
+                currentPlayerTurn = null;
+            }
+            return;
+        }
+
         // --- Sort lancé ---
         Matcher mCast = LogPatterns.CAST_SPELL.matcher(line);
         if (mCast.find()) {
             String casterName = mCast.group(1).trim();
             String spellName = mCast.group(2).trim();
+
+            // Ignorer les sorts lancés par les ennemis
+            Fighter caster = fighters.get(casterName);
+            if (caster != null && caster.getType() != Fighter.FighterType.PLAYER) {
+                //System.out.printf("[Parser] IGNORED (enemy cast): %s lance %s%n", casterName, spellName);
+                return;
+            }
 
             // check for special-case mappings
             String mapped = SpecialCase.specialSpell(spellName);
@@ -118,7 +156,6 @@ public class LogProcessor {
             Ability ability = new Ability(spellName, "Sort", Element.INCONNU, DamageSourceType.DIRECT);
             lastAbilityByCaster.put(casterName, ability);
             lastCastTime.put(casterName, tsNow);
-            paRegainedByCaster.put(casterName, 0); // Réinitialiser les PA regagnés pour ce nouveau cast
             System.out.printf("[Parser] %s lance %s%n", casterName, spellName);
             return;
         }
@@ -136,16 +173,6 @@ public class LogProcessor {
             handleIndirectDamage(mIndirect, tsNow);
             return;
         }
-
-        // --- PA regagnés ---
-        // Ignorer les pertes de PA (avec signe moins)
-        if (line.contains("PA") && !line.matches(".*[−–-]\\s*\\d+\\s*PA.*")) {
-            Matcher mPA = LogPatterns.PA_REGAIN.matcher(line);
-            if (mPA.find()) {
-                handlePARegain(mPA, tsNow);
-                return;
-            }
-        }
     }
 
     // === Gestion des événements ===
@@ -156,6 +183,12 @@ public class LogProcessor {
 
         Fighter caster = findRecentCaster(tsNow);
         Fighter target = fighters.computeIfAbsent(targetName, n -> new Enemy(n, -1, n));
+
+        // Ignorer les dégâts causés par les ennemis (seulement traiter les dégâts des joueurs)
+        if (caster.getType() != Fighter.FighterType.PLAYER) {
+            //System.out.printf("[Parser] IGNORED (enemy damage): %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
+            return;
+        }
 
         // Ignorer les dégâts auto-infligés pour les joueurs
         if (caster instanceof Player && caster.getName().equals(target.getName())) {
@@ -175,16 +208,14 @@ public class LogProcessor {
         );
         ability.setElement(element);
 
-        // Récupérer le baseCost et les PA regagnés
+        // Récupérer le baseCost
         Integer baseCost = getBaseCostForCaster(caster);
-        int paRegained = paRegainedByCaster.getOrDefault(caster.getName(), 0);
 
         CombatEvent event = new CombatEvent(LocalDateTime.now(), caster, target, ability,
-                EventType.DAMAGE, value, element, baseCost, paRegained);
+                EventType.DAMAGE, value, element, baseCost, 0);
         process(event);
-        System.out.printf("[Parser] DIRECT: %s → %s %d (%s) [PA: %s - %d = %s]%n",
-                caster.getName(), target.getName(), value, element,
-                baseCost, paRegained, baseCost != null ? (baseCost - paRegained) : "?");
+        System.out.printf("[Parser] DIRECT: %s → %s %d (%s) [PA: %s]%n",
+                caster.getName(), target.getName(), value, element, baseCost);
     }
 
     private void handleIndirectDamage(Matcher m, long tsNow) {
@@ -233,6 +264,12 @@ public class LogProcessor {
 
         Fighter target = fighters.computeIfAbsent(targetName, n -> new Enemy(n, -1, n));
 
+        // Ignorer les dégâts causés par les ennemis (seulement traiter les dégâts des joueurs)
+        if (caster.getType() != Fighter.FighterType.PLAYER) {
+            //System.out.printf("[Parser] IGNORED (enemy indirect damage): %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
+            return;
+        }
+
         // Ignorer les dégâts auto-infligés pour les joueurs
         if (caster instanceof Player && caster.getName().equals(target.getName())) {
             System.out.printf("[Parser] IGNORED (self-damage indirect): %s → %s %d (%s)%n", caster.getName(), target.getName(), value, element);
@@ -248,12 +285,11 @@ public class LogProcessor {
         Ability ability = new Ability(effectName, "Effet indirect", element,
                 isTrueIndirect ? DamageSourceType.INDIRECT : DamageSourceType.DIRECT);
 
-        // Récupérer le baseCost et les PA regagnés
+        // Récupérer le baseCost
         Integer baseCost = getBaseCostForCaster(caster);
-        int paRegained = paRegainedByCaster.getOrDefault(caster.getName(), 0);
 
         CombatEvent event = new CombatEvent(LocalDateTime.now(), caster, target, ability,
-                EventType.DAMAGE, value, element, baseCost, paRegained);
+                EventType.DAMAGE, value, element, baseCost, 0);
 
         process(event);
     }
@@ -265,6 +301,12 @@ public class LogProcessor {
     private void detectTurnStart(String playerName) {
         long currentTime = System.currentTimeMillis();
         lastActivityTime = currentTime; // Mettre à jour l'activité (cast ou dégâts)
+
+        // Ignorer les joueurs KO
+        if (playersKO.contains(playerName)) {
+            System.out.printf("[Parser] IGNORED cast from KO player: %s%n", playerName);
+            return;
+        }
 
         if (currentPlayerTurn == null || !currentPlayerTurn.equals(playerName)) {
             // --- Round Start ---
@@ -343,42 +385,12 @@ public class LogProcessor {
     }
 
     /**
-     * Détecte si un timeout d'activité s'est produit (pas de cast ou dégâts depuis longtemps).
-     * Utile pour détecter un problème de parsing ou un combat figé.
-     * Appelé périodiquement depuis le processeur de logs pour nettoyer les états bloqués.
-     */
-    public void checkActivityTimeout() {
-        long currentTime = System.currentTimeMillis();
-
-        // Si aucune activité depuis ACTIVITY_TIMEOUT_MS et nous sommes en combat
-        if (inCombat && lastActivityTime > 0 && currentTime - lastActivityTime > ACTIVITY_TIMEOUT_MS) {
-            System.out.println("[Round] ⚠ ACTIVITY TIMEOUT: No activity for " +
-                    (ACTIVITY_TIMEOUT_MS / 1000) + " seconds");
-
-            // Si nous avons un round en cours avec au moins 2 joueurs, le clore
-            if (playersThisRound.size() >= MIN_PLAYERS_FOR_ROUND && firstPlayerThisRound != null) {
-                process(new BattleEvent(LocalDateTime.now(),
-                        BattleEvent.BattleState.ROUND_END, roundNumber));
-                System.out.println("[Round] <<< ROUND " + roundNumber + " END (activity timeout) <<<");
-                System.out.println("[Round] Players who played: " + playersThisRound);
-
-                roundNumber++;
-                playersThisRound.clear();
-                turnOrderThisRound.clear();
-                firstPlayerThisRound = null;
-            }
-
-            // Réinitialiser le timestamp pour éviter les timeouts répétitifs
-            lastActivityTime = currentTime;
-        }
-    }
-
-    /**
-     * Compte le nombre de joueurs actifs (PLAYER) dans le combat
+     * Compte le nombre de joueurs actifs (PLAYER non-KO) dans le combat
      */
     private int countActivePlayers() {
         return (int) fighters.values().stream()
                 .filter(f -> f.getType() == Fighter.FighterType.PLAYER)
+                .filter(f -> !playersKO.contains(f.getName()))
                 .count();
     }
 
@@ -425,32 +437,6 @@ public class LogProcessor {
         }
     }
 
-    /**
-     * Gère les PA regagnés détectés dans les logs.
-     * Accumule tous les regains de PA pour un même cast (ex: Profit + regain normal).
-     */
-    private void handlePARegain(Matcher m, long tsNow) {
-        String playerName = m.group(1).trim();
-        // Le pattern a 3 groupes: (nom):(signe optionnel)(nombre) PA
-        // Groupe 1 = nom, Groupe 2 = signe [+]?, Groupe 3 = nombre
-        int paAmount = Integer.parseInt(m.group(3).trim());
-
-        // Vérifier si un sort a été récemment lancé par ce joueur
-        Long lastCast = lastCastTime.get(playerName);
-
-        // Ignorer les regains de PA qui ne sont pas liés à un sort récent
-        if (lastCast == null || (tsNow - lastCast) > RECENT_CAST_WINDOW_MS) {
-            System.out.printf("[Parser] PA REGAIN IGNORED (not spell-related): %s +%d PA (lastCast=%s, tsNow=%d, diff=%d)%n",
-                    playerName, paAmount, lastCast, tsNow, lastCast != null ? (tsNow - lastCast) : -1);
-            return;
-        }
-
-        // Ajouter les PA regagnés au compteur du joueur (cumul pour le cast en cours)
-        paRegainedByCaster.merge(playerName, paAmount, Integer::sum);
-
-        System.out.printf("[Parser] PA REGAIN: %s +%d PA (cumulative total: %d)%n",
-                playerName, paAmount, paRegainedByCaster.get(playerName));
-    }
 
     /**
      * Récupère le baseCost du sort actuellement lancé par le caster
@@ -473,6 +459,7 @@ public class LogProcessor {
         currentPlayerTurn = null;
         firstPlayerThisRound = null;
         playersThisRound.clear();
+        playersKO.clear();
         turnOrderThisRound.clear();
         roundNumber = 1;
         lastTurnStartTime = 0;

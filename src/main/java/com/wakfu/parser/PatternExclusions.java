@@ -18,7 +18,8 @@ public final class PatternExclusions {
             Pattern.compile("\\(Simple\\)"),
             Pattern.compile("\\(Double\\)"),
             Pattern.compile("\\(Veines de Wakfu\\)"),
-            Pattern.compile("\\(Courroux\\)")
+            Pattern.compile("\\(Courroux\\)"),
+            Pattern.compile("\\([^)]*\\brebonds?\\b[^)]*\\)")
     );
 
     private static final List<String> IGNORE = List.of(
