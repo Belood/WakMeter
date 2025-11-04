@@ -25,7 +25,9 @@ public class LogProcessor {
     private final Map<String, Fighter> fighters = new HashMap<>();
     private final Map<String, Ability> lastAbilityByCaster = new HashMap<>();
     private final Map<String, Long> lastCastTime = new HashMap<>();
-    private final Map<String, Integer> paRegainedByCaster = new HashMap<>(); // PA regagnés par joueur
+    // PA regagnés par joueur pour le cast en cours - CUMULE toutes les lignes de PA
+    // (ex: "Drazuria: 1PA (Profit)" + "Drazuria: 1PA" = 2 PA total)
+    private final Map<String, Integer> paRegainedByCaster = new HashMap<>();
     private String currentPlayerTurn = null;      // joueur actuellement actif
     private int roundNumber = 1;                  // numéro du round en cours
     private final Set<String> playersThisRound = new HashSet<>(); // joueurs ayant déjà joué ce round
@@ -136,10 +138,13 @@ public class LogProcessor {
         }
 
         // --- PA regagnés ---
-        Matcher mPA = LogPatterns.PA_REGAIN.matcher(line);
-        if (mPA.find()) {
-            handlePARegain(mPA);
-            return;
+        // Ignorer les pertes de PA (avec signe moins)
+        if (line.contains("PA") && !line.matches(".*[−–-]\\s*\\d+\\s*PA.*")) {
+            Matcher mPA = LogPatterns.PA_REGAIN.matcher(line);
+            if (mPA.find()) {
+                handlePARegain(mPA, tsNow);
+                return;
+            }
         }
     }
 
@@ -421,27 +426,29 @@ public class LogProcessor {
     }
 
     /**
-     * Gère les PA regagnés détectés dans les logs
+     * Gère les PA regagnés détectés dans les logs.
+     * Accumule tous les regains de PA pour un même cast (ex: Profit + regain normal).
      */
-    private void handlePARegain(Matcher m) {
+    private void handlePARegain(Matcher m, long tsNow) {
         String playerName = m.group(1).trim();
-        int paAmount = Integer.parseInt(m.group(2).trim());
+        // Le pattern a 3 groupes: (nom):(signe optionnel)(nombre) PA
+        // Groupe 1 = nom, Groupe 2 = signe [+]?, Groupe 3 = nombre
+        int paAmount = Integer.parseInt(m.group(3).trim());
 
         // Vérifier si un sort a été récemment lancé par ce joueur
         Long lastCast = lastCastTime.get(playerName);
-        long currentTime = System.currentTimeMillis();
 
         // Ignorer les regains de PA qui ne sont pas liés à un sort récent
-        if (lastCast == null || (currentTime - lastCast) > RECENT_CAST_WINDOW_MS) {
-            System.out.printf("[Parser] PA REGAIN IGNORED (not spell-related): %s +%d PA%n",
-                    playerName, paAmount);
+        if (lastCast == null || (tsNow - lastCast) > RECENT_CAST_WINDOW_MS) {
+            System.out.printf("[Parser] PA REGAIN IGNORED (not spell-related): %s +%d PA (lastCast=%s, tsNow=%d, diff=%d)%n",
+                    playerName, paAmount, lastCast, tsNow, lastCast != null ? (tsNow - lastCast) : -1);
             return;
         }
 
-        // Ajouter les PA regagnés au compteur du joueur
+        // Ajouter les PA regagnés au compteur du joueur (cumul pour le cast en cours)
         paRegainedByCaster.merge(playerName, paAmount, Integer::sum);
 
-        System.out.printf("[Parser] PA REGAIN: %s +%d PA (total: %d)%n",
+        System.out.printf("[Parser] PA REGAIN: %s +%d PA (cumulative total: %d)%n",
                 playerName, paAmount, paRegainedByCaster.get(playerName));
     }
 
