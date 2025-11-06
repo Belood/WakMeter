@@ -22,6 +22,7 @@ public class CombatEvent extends LogEvent {
     private final DamageSourceType sourceType;
     private final Integer baseCost;
     private final int paRegained;
+    private final String castId;
 
     public CombatEvent(
             LocalDateTime timestamp,
@@ -32,7 +33,7 @@ public class CombatEvent extends LogEvent {
             int value,
             Element element
     ) {
-        this(timestamp, caster, target, ability, type, value, element, null, 0);
+        this(timestamp, caster, target, ability, type, value, element, null, 0, null);
     }
 
     public CombatEvent(
@@ -46,6 +47,21 @@ public class CombatEvent extends LogEvent {
             Integer baseCost,
             int paRegained
     ) {
+        this(timestamp, caster, target, ability, type, value, element, baseCost, paRegained, null);
+    }
+
+    public CombatEvent(
+            LocalDateTime timestamp,
+            Fighter caster,
+            Fighter target,
+            Ability ability,
+            EventType type,
+            int value,
+            Element element,
+            Integer baseCost,
+            int paRegained,
+            String castId
+    ) {
         super(timestamp);
         this.caster = caster;
         this.target = target;
@@ -56,6 +72,7 @@ public class CombatEvent extends LogEvent {
         this.sourceType = ability != null ? ability.getSourceType() : DamageSourceType.AUTRE;
         this.baseCost = baseCost;
         this.paRegained = paRegained;
+        this.castId = castId;
     }
 
     public Fighter getCaster() {
@@ -92,6 +109,20 @@ public class CombatEvent extends LogEvent {
 
     public int getPaRegained() {
         return paRegained;
+    }
+
+    public String getCastId() {
+        return castId;
+    }
+
+    /**
+     * Calcule le coût effectif en PA (baseCost - PA regagnés).
+     * Retourne null si le baseCost n'est pas connu.
+     */
+    public Integer getEffectiveCost() {
+        if (baseCost == null) return null;
+        int effective = baseCost - paRegained;
+        return Math.max(effective, 0); // Ne peut pas être négatif
     }
 
     @Override

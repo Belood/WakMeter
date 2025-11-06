@@ -52,6 +52,9 @@ public class TotalDamagePane {
         ColumnConstraints[] columns = UIUtils.createPlayerDamageColumns();
         row.getColumnConstraints().addAll(List.of(columns));
 
+        // [Class Icon]
+        Region classIcon = createClassIcon(p);
+
         // [Name]
         Label name = labelLeft(p.getName(), 90);
 
@@ -121,11 +124,12 @@ public class TotalDamagePane {
         GridPane.setMargin(details, new Insets(0, 10, 0, 0));
 
         // Placement colonnes
-        row.add(name,        0, 0);
-        row.add(barContainer, 1, 0);
-        row.add(value,       2, 0);
-        row.add(percent,     3, 0);
-        row.add(details,     4, 0);
+        row.add(classIcon,    0, 0);
+        row.add(name,         1, 0);
+        row.add(barContainer, 2, 0);
+        row.add(value,        3, 0);
+        row.add(percent,      4, 0);
+        row.add(details,      5, 0);
 
         HBox wrapper = new HBox(row);
         wrapper.setAlignment(Pos.CENTER_LEFT);
@@ -135,6 +139,41 @@ public class TotalDamagePane {
     }
 
     /* ---------- Helpers compacts ---------- */
+
+    private static Region createClassIcon(Player player) {
+        Region icon = new Region();
+        icon.setPrefSize(24, 24);
+        icon.setMinSize(24, 24);
+        icon.setMaxSize(24, 24);
+
+        if (player.getPlayerClass() != null && player.getPlayerClass().getIconPath() != null) {
+            String iconPath = player.getPlayerClass().getIconPath();
+            try {
+                var url = TotalDamagePane.class.getResource(iconPath);
+                if (url != null) {
+                    String style = String.format(
+                        "-fx-background-image: url('%s'); " +
+                        "-fx-background-size: contain; " +
+                        "-fx-background-repeat: no-repeat; " +
+                        "-fx-background-position: center;",
+                        url.toExternalForm()
+                    );
+                    icon.setStyle(style);
+                } else {
+                    // Icône non trouvée, laisser vide
+                    icon.setStyle("-fx-background-color: transparent;");
+                }
+            } catch (Exception e) {
+                // En cas d'erreur, laisser l'icône vide
+                icon.setStyle("-fx-background-color: transparent;");
+            }
+        } else {
+            // Pas de classe détectée, afficher un point d'interrogation ou laisser vide
+            icon.setStyle("-fx-background-color: #cccccc; -fx-background-radius: 12;");
+        }
+
+        return icon;
+    }
 
     private static Label labelLeft(String text, double w) {
         Label l = new Label(text);

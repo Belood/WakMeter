@@ -56,6 +56,11 @@ public final class LogPatterns {
             "\\[Information \\(combat\\)\\]\\s+([^\\s]+)\\s+est ressuscité"
     );
 
+    /** Regain de PA */
+    public static final Pattern PA_GAIN = Pattern.compile(
+            "(?U)\\[Information \\(combat\\)\\]\\s+([^:]+):\\s*\\+?\\s*([\\d\\s\\p{Zs}]+)\\s*PA(?:\\s*\\([^)]*\\))?"
+    );
+
     /** Fin de tour (secondes reportées) */
     public static final Pattern TURN_END = Pattern.compile(
             "\\[Information \\(combat\\)\\]\\s+(\\d+)\\s+secondes? reportées? pour le tour suivant"

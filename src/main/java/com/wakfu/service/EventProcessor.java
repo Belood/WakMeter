@@ -57,6 +57,8 @@ public class EventProcessor {
             handleBattleEvent((BattleEvent) event);
         } else if (event instanceof CombatEvent) {
             handleCombatEvent((CombatEvent) event);
+        } else if (event instanceof com.wakfu.domain.event.BonusDamageEvent) {
+            handleBonusDamageEvent((com.wakfu.domain.event.BonusDamageEvent) event);
         }
     }
 
@@ -152,6 +154,28 @@ public class EventProcessor {
             }
 
             // Notify after updating stats
+            currentFight.notifyListeners();
+        }
+    }
+
+    private void handleBonusDamageEvent(com.wakfu.domain.event.BonusDamageEvent event) {
+        if (event.getCaster() instanceof Player) {
+            Player caster = (Player) event.getCaster();
+
+            PlayerStats stats = currentFight.getStatsByPlayer()
+                    .computeIfAbsent(caster.getName(), name -> new PlayerStats(caster));
+
+            com.wakfu.domain.model.RoundModel currentRound = currentFight.getCurrentRoundModel();
+            PlayerStats roundStats = null;
+            if (currentRound != null) {
+                roundStats = currentRound.getOrCreatePlayerStats(caster.getName());
+            }
+
+            stats.addBonusDamage(event.getEffectName(), event.getElement(), event.getValue());
+            if (roundStats != null) {
+                roundStats.addBonusDamage(event.getEffectName(), event.getElement(), event.getValue());
+            }
+
             currentFight.notifyListeners();
         }
     }

@@ -10,6 +10,11 @@ import com.wakfu.ui.UIManager;
 import javafx.application.Application;
 import javafx.stage.Stage;
 
+import java.io.FileDescriptor;
+import java.io.FileOutputStream;
+import java.io.PrintStream;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Optional;
@@ -20,6 +25,14 @@ public class WakfuMeterApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        // === Fix encodage UTF-8 pour la console ===
+        try {
+            System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8.name()));
+            System.setErr(new PrintStream(new FileOutputStream(FileDescriptor.err), true, StandardCharsets.UTF_8.name()));
+        } catch (UnsupportedEncodingException e) {
+            System.err.println("Warning: Could not set UTF-8 encoding for console");
+        }
+
         // === Initialisation des modules ===
         DamageCalculator damageCalculator = new DamageCalculator();
         EventProcessor eventProcessor = new EventProcessor();
@@ -40,9 +53,34 @@ public class WakfuMeterApp extends Application {
         uiManager.setHistoryChecked(historyEnabled);
         eventProcessor.setHistoryEnabled(historyEnabled);
 
-        // Restaurer le parametre autoReset
+        // Enregistrer le callback auto-reset AVANT de restaurer la valeur
+        uiManager.setOnAutoResetChanged(enabled -> {
+            if (enabled) {
+                // When enabled, register the hook so that at the START of each battle
+                // the damageCalculator and UI will be reset.
+                eventProcessor.setOnBattleStart(() -> {
+                    try {
+                        damageCalculator.reset();
+                        uiManager.resetUI();
+                    } catch (Exception ignored) {}
+                });
+            } else {
+                eventProcessor.setOnBattleStart(null);
+            }
+        });
+
+        // Restaurer le parametre autoReset et déclencher le callback
         boolean autoResetEnabled = UserSettings.loadAutoReset().orElse(true);
         uiManager.setAutoResetChecked(autoResetEnabled);
+        // Déclencher manuellement le callback pour enregistrer le hook
+        if (autoResetEnabled) {
+            eventProcessor.setOnBattleStart(() -> {
+                try {
+                    damageCalculator.reset();
+                    uiManager.resetUI();
+                } catch (Exception ignored) {}
+            });
+        }
 
         // Callback pour démarrer le parser quand un dossier est choisi
         uiManager.setOnLogFolderSelected(path -> {
@@ -111,22 +149,6 @@ public class WakfuMeterApp extends Application {
         } else {
             uiManager.setAppStatus(MessageProvider.addLogPath());
         }
-
-        uiManager.setOnAutoResetChanged(enabled -> {
-            if (enabled) {
-                // When enabled, only register the hook so that at the START of each battle
-                // the damageCalculator and UI will be reset. Do NOT reset immediately when
-                // the checkbox is toggled.
-                eventProcessor.setOnBattleStart(() -> {
-                    try {
-                        damageCalculator.reset();
-                        uiManager.resetUI();
-                    } catch (Exception ignored) {}
-                });
-            } else {
-                eventProcessor.setOnBattleStart(null);
-            }
-        });
     }
 
     @Override
@@ -134,7 +156,10 @@ public class WakfuMeterApp extends Application {
         if (logParser != null) logParser.stop();
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws UnsupportedEncodingException {
+        // Force System.out en UTF-8 (utiliser FileDescriptor.out pour conserver la sortie console)
+        System.setOut(new PrintStream(new FileOutputStream(FileDescriptor.out), true, StandardCharsets.UTF_8));
+
         launch(args);
     }
 }

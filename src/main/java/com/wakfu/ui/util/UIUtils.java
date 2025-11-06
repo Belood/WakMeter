@@ -141,7 +141,7 @@ public class UIUtils {
     /**
      * Configuration standard des colonnes pour le breakdown pane.
      * @param spellNameWidth Largeur fixe calculée pour la colonne du nom du sort
-     * @return Array de ColumnConstraints [spellName (fixed), bar (grow), damage, dmgPerPA, percent]
+     * @return Array de ColumnConstraints [spellName (fixed), bar (grow), damage, dmgPerPA, casts, percent]
      */
     public static ColumnConstraints[] createBreakdownColumns(double spellNameWidth) {
         return new ColumnConstraints[] {
@@ -149,17 +149,19 @@ public class UIUtils {
             createGrowColumn(),                             // Bar
             createFixedColumn(50),                          // Damage
             createFixedColumn(60),                          // Dmg/PA
+            createFixedColumn(40),                          // Casts
             createFixedColumn(40)                           // Percent
         };
     }
 
     /**
      * Configuration standard des colonnes pour le player damage pane.
-     * @return Array de ColumnConstraints [name, bar, value, percent, button]
+     * @return Array de ColumnConstraints [class icon, name, bar, value, percent, button]
      */
     public static ColumnConstraints[] createPlayerDamageColumns() {
         return new ColumnConstraints[] {
-            createFixedColumn(90),     // Name
+            createFixedColumn(32),      // Class icon
+            createFixedColumn(90),      // Name
             createGrowColumn(),         // Bar container
             createFixedColumn(60),      // Value
             createFixedColumn(60),      // Percent

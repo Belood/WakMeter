@@ -19,7 +19,9 @@ public final class PatternExclusions {
             Pattern.compile("\\(Double\\)"),
             Pattern.compile("\\(Veines de Wakfu\\)"),
             Pattern.compile("\\(Courroux\\)"),
-            Pattern.compile("\\([^)]*\\brebonds?\\b[^)]*\\)")
+            Pattern.compile("\\([^)]*\\brebonds?\\b[^)]*\\)"),
+            Pattern.compile("\\(Tir précis\\)"),
+            Pattern.compile("\\(Flèche statique\\)")
     );
 
     private static final List<String> IGNORE = List.of(

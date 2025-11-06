@@ -13,8 +13,10 @@ public class PlayerStats {
 
     private final Player player;
     private final Map<String, SpellStats> spells = new LinkedHashMap<>();
+    private final Map<String, BonusEffectStats> bonusEffects = new LinkedHashMap<>();
 
     private int totalDamage = 0;
+    private int totalBonusDamage = 0;
     private int totalHeal = 0;
     private int totalShield = 0;
 
@@ -29,7 +31,15 @@ public class PlayerStats {
 
         spells
             .computeIfAbsent(event.getAbility().getName(), SpellStats::new)
-            .addDamage(element, val, event.getBaseCost(), event.getPaRegained());
+            .addDamage(element, val, event.getBaseCost(), event.getPaRegained(), event.getCastId());
+    }
+
+    public void addBonusDamage(String effectName, Element element, int value) {
+        totalBonusDamage += value;
+
+        bonusEffects
+            .computeIfAbsent(effectName, BonusEffectStats::new)
+            .addDamage(element, value);
     }
 
     public void addHeal(CombatEvent event) {
@@ -48,8 +58,16 @@ public class PlayerStats {
         return Collections.unmodifiableMap(spells);
     }
 
+    public Map<String, BonusEffectStats> getBonusEffects() {
+        return Collections.unmodifiableMap(bonusEffects);
+    }
+
     public Player getPlayer() {
         return player;
+    }
+
+    public int getTotalBonusDamage() {
+        return totalBonusDamage;
     }
 
     public int getTotalHeal() {
@@ -61,6 +79,6 @@ public class PlayerStats {
     }
 
     public int getGlobalTotal() {
-        return totalDamage + totalHeal + totalShield;
+        return totalDamage + totalBonusDamage + totalHeal + totalShield;
     }
 }
